@@ -12,5 +12,5 @@ return [
     | package's internal default filename (workspace.json).
     |
     */
-    'path' => env('WORKSPACE_MANIFEST_PATH', null),
+    'path' => env('WORKSPACE_MANIFEST_PATH', 'workspace.json'),
 ];

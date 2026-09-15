@@ -43,6 +43,7 @@ class WorkspaceManifestTest extends TestCase
         $this->assertEquals('git@github.com:{package}.git', $wm->getRepositoryUrlTemplate());
         $this->assertSame([], $wm->getWorkspaces());
         $this->assertSame([], $wm->getWorkspaceNames());
+        $this->assertSame('./packages/alex-kassel/workspace-manifest/resources/schema.json', $wm->manifest()->get('$schema'));
     }
 
     public function test_register_and_unregister_workspace(): void
@@ -151,5 +152,16 @@ class WorkspaceManifestTest extends TestCase
                 ],
             ],
         ]);
+    }
+
+    public function test_json_schema_export_and_specification(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+        $schema = $wm->manifest()->exportJsonSchema();
+
+        $this->assertIsArray($schema);
+        $this->assertSame('http://json-schema.org/draft-07/schema#', $schema['$schema'] ?? null);
+        $this->assertSame('WorkspaceManifest', $schema['title'] ?? null);
+        $this->assertArrayHasKey('workspaces', $schema['properties'] ?? []);
     }
 }

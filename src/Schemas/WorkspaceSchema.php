@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace AlexKassel\WorkspaceManifest\Schemas;
 
-use AlexKassel\ManifestEngine\Contracts\ManifestSchema;
-use AlexKassel\ManifestEngine\Exceptions\ManifestValidationException;
+use AlexKassel\ManifestEngine\Schemas\BaseSchema;
+use AlexKassel\WorkspaceManifest\Rules\ValidPackageEntryRule;
 
-class WorkspaceSchema implements ManifestSchema
+class WorkspaceSchema extends BaseSchema
 {
     /**
      * Default state when a new workspace manifest is initialized.
@@ -17,6 +17,7 @@ class WorkspaceSchema implements ManifestSchema
     public function defaults(): array
     {
         return [
+            '$schema' => './packages/alex-kassel/workspace-manifest/resources/schema.json',
             'default' => null,
             'repository_url_template' => 'git@github.com:{package}.git',
             'workspaces' => [],
@@ -24,75 +25,109 @@ class WorkspaceSchema implements ManifestSchema
     }
 
     /**
-     * Validate manifest data against workspace specification rules.
+     * Validation rules for workspace.json specification.
      *
-     * @param  array<string, mixed>  $data
-     *
-     * @throws ManifestValidationException
+     * @return array<string, mixed>
      */
-    public function validate(array $data, string $path): void
+    public function rules(): array
     {
-        if (array_key_exists('workspaces', $data) && ! is_array($data['workspaces'])) {
-            throw new ManifestValidationException(
-                "Manifest [{$path}] section 'workspaces' must be an associative array.",
-                ['workspaces' => 'Must be an associative array.']
-            );
-        }
+        return [
+            '$schema' => ['sometimes', 'string'],
+            'default' => ['sometimes', 'nullable', 'string'],
+            'repository_url_template' => ['sometimes', 'string'],
+            'workspaces' => ['present', 'array'],
+            'workspaces.*' => ['array'],
+            'workspaces.*.vendor' => ['sometimes', 'nullable', 'string'],
+            'workspaces.*.packages' => ['present', 'array'],
+            'workspaces.*.packages.*' => [new ValidPackageEntryRule],
+            'workspaces.*.hooks' => ['sometimes', 'array'],
+        ];
+    }
 
-        if (array_key_exists('default', $data) && $data['default'] !== null && ! is_string($data['default'])) {
-            throw new ManifestValidationException(
-                "Manifest [{$path}] attribute 'default' must be a string or null.",
-                ['default' => 'Must be a string or null.']
-            );
-        }
-
-        if (array_key_exists('repository_url_template', $data) && ! is_string($data['repository_url_template'])) {
-            throw new ManifestValidationException(
-                "Manifest [{$path}] attribute 'repository_url_template' must be a string.",
-                ['repository_url_template' => 'Must be a string.']
-            );
-        }
-
-        if (isset($data['workspaces']) && is_array($data['workspaces'])) {
-            foreach ($data['workspaces'] as $workspace => $config) {
-                if (! is_array($config)) {
-                    throw new ManifestValidationException(
-                        "Manifest [{$path}] workspace [{$workspace}] configuration must be an array.",
-                        ["workspaces.{$workspace}" => 'Must be an array.']
-                    );
-                }
-
-                if (array_key_exists('packages', $config) && ! is_array($config['packages'])) {
-                    throw new ManifestValidationException(
-                        "Manifest [{$path}] packages in workspace [{$workspace}] must be an array.",
-                        ["workspaces.{$workspace}.packages" => 'Must be an array.']
-                    );
-                }
-
-                if (isset($config['packages']) && is_array($config['packages'])) {
-                    foreach ($config['packages'] as $idx => $pkg) {
-                        if (is_string($pkg)) {
-                            continue;
-                        }
-
-                        if (is_array($pkg)) {
-                            if (! isset($pkg['name']) || ! is_string($pkg['name']) || trim($pkg['name']) === '') {
-                                throw new ManifestValidationException(
-                                    "Manifest [{$path}] package entry at index [{$idx}] in workspace [{$workspace}] must have a non-empty 'name' string.",
-                                    ["workspaces.{$workspace}.packages.{$idx}.name" => 'Required non-empty string.']
-                                );
-                            }
-
-                            continue;
-                        }
-
-                        throw new ManifestValidationException(
-                            "Manifest [{$path}] package entry at index [{$idx}] in workspace [{$workspace}] must be a string or object with 'name'.",
-                            ["workspaces.{$workspace}.packages.{$idx}" => 'Must be string or object.']
-                        );
-                    }
-                }
-            }
-        }
+    /**
+     * Full JSON Schema (Draft-07) definition for IDE autocomplete and linting.
+     *
+     * @return array<string, mixed>
+     */
+    public function jsonSchema(): array
+    {
+        return [
+            '$schema' => 'http://json-schema.org/draft-07/schema#',
+            'title' => 'WorkspaceManifest',
+            'description' => 'Multi-package workspace configuration for Laravel and PHP ecosystems.',
+            'type' => 'object',
+            'properties' => [
+                '$schema' => [
+                    'type' => 'string',
+                    'description' => 'Path or URL to the JSON Schema specification.',
+                ],
+                'default' => [
+                    'type' => ['string', 'null'],
+                    'description' => 'The default workspace directory (e.g. "packages").',
+                ],
+                'repository_url_template' => [
+                    'type' => 'string',
+                    'description' => 'Git repository remote clone template (e.g. "git@github.com:{package}.git").',
+                ],
+                'workspaces' => [
+                    'type' => 'object',
+                    'description' => 'Map of registered workspace directories and their configurations.',
+                    'additionalProperties' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'vendor' => [
+                                'type' => ['string', 'null'],
+                                'description' => 'Optional vendor namespace prefix for flat workspaces.',
+                            ],
+                            'packages' => [
+                                'type' => 'array',
+                                'description' => 'List of registered packages in this workspace.',
+                                'items' => [
+                                    'oneOf' => [
+                                        [
+                                            'type' => 'string',
+                                            'description' => 'Package name in vendor/package format (e.g. "acme/billing").',
+                                        ],
+                                        [
+                                            'type' => 'object',
+                                            'description' => 'Structured package descriptor with metadata.',
+                                            'properties' => [
+                                                'name' => [
+                                                    'type' => 'string',
+                                                    'description' => 'Package name in vendor/package format.',
+                                                ],
+                                                'alias' => [
+                                                    'type' => 'string',
+                                                    'description' => 'Directory alias for flat workspaces (e.g. "Billing").',
+                                                ],
+                                                'url' => [
+                                                    'type' => 'string',
+                                                    'description' => 'Custom Git repository remote URL.',
+                                                ],
+                                                'skills' => [
+                                                    'type' => 'array',
+                                                    'items' => ['type' => 'string'],
+                                                    'description' => 'Agent skills assigned to this package.',
+                                                ],
+                                            ],
+                                            'required' => ['name'],
+                                            'additionalProperties' => true,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                            'hooks' => [
+                                'type' => 'object',
+                                'description' => 'Lifecycle workspace hooks and triggers.',
+                            ],
+                        ],
+                        'required' => ['packages'],
+                        'additionalProperties' => true,
+                    ],
+                ],
+            ],
+            'required' => ['workspaces'],
+            'additionalProperties' => true,
+        ];
     }
 }

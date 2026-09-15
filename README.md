@@ -34,6 +34,7 @@ A standard `workspace.json` document managed by this library looks like:
 
 ```json
 {
+    "$schema": "./packages/alex-kassel/workspace-manifest/resources/schema.json",
     "default": "packages",
     "repository_url_template": "git@github.com:{package}.git",
     "workspaces": {
@@ -53,6 +54,8 @@ A standard `workspace.json` document managed by this library looks like:
     }
 }
 ```
+
+> **IDE Autocomplete & Linting**: Referencing `resources/schema.json` via `$schema` activates full real-time autocompletion (`Ctrl+Space`), inline property docs, and syntax diagnostics in PhpStorm and VS Code!
 
 ---
 

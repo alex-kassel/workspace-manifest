@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace AlexKassel\WorkspaceManifest;
 
+use AlexKassel\ManifestEngine\ManifestRegistry;
+use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
 use Illuminate\Support\ServiceProvider;
 
 class WorkspaceManifestServiceProvider extends ServiceProvider
@@ -28,6 +30,18 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../config/workspace-manifest.php' => config_path('workspace-manifest.php'),
             ], 'workspace-manifest-config');
+        }
+
+        if ($this->app->bound(ManifestRegistry::class)) {
+            /** @var ManifestRegistry $registry */
+            $registry = $this->app->make(ManifestRegistry::class);
+            $registry->register(
+                name: 'workspace',
+                filename: 'workspace.json',
+                schema: WorkspaceSchema::class,
+                runnerPath: __DIR__.'/../bin/workspace',
+                description: 'Multi-package workspace monorepo configuration',
+            );
         }
     }
 }

@@ -73,13 +73,14 @@ Goal: Evaluate ManifestEngine compatibility, verify boundary purity, update docu
 
 Goal: Connect `alex-kassel/workspace-manifest` to `alex-kassel/workspace-development-toolkit` and eliminate duplicated code.
 
-- [ ] **3.1. Require Workspace Manifest in Toolkit**
-  - [ ] Add `alex-kassel/workspace-manifest` to Toolkit's `composer.json`.
-- [ ] **3.2. Adapt Toolkit's `ManifestRepository`**
-  - [ ] Delegate `ManifestRepository` calls to `WorkspaceManifest` instance.
-  - [ ] Retain healing logic (`heal()` from root `composer.json`) in Toolkit as a dedicated recovery action or helper.
-- [ ] **3.3. Verify Toolkit Test Suite**
-  - [ ] Run full test suite: `vendor/bin/phpunit packages/alex-kassel/workspace-development-toolkit/tests`.
-  - [ ] Run Chaos tests (`PackageCommandsChaosTest`, `WorkspaceCommandsChaosTest`, `StateChaosMachineTest`).
-- [ ] **3.4. Final Cleanup**
-  - [ ] Remove legacy duplicate code and unused methods in Toolkit once all tests pass.
+- [x] **3.1. Require Workspace Manifest in Toolkit**
+  - [x] Added `alex-kassel/workspace-manifest` requirement to Toolkit's `composer.json`.
+- [x] **3.2. Adapt Toolkit's `ManifestRepository`**
+  - [x] Delegated all `workspace.json` package mutations (`registerPackageAlias`, `recordPackage`, `updatePackageSkills`, `forgetPackage`, `normalizeWorkspacePath`) to `WorkspaceManifest`.
+  - [x] Retained `heal()` in Toolkit for reconstructing configuration from root `composer.json`.
+  - [x] Resolved artisan command collision by namespacing the manifest setup command to `workspace-manifest:install`.
+- [x] **3.3. Verify Toolkit Test Suite**
+  - [x] 360 tests in `workspace-development-toolkit` suite executed: **354 passed, 0 failed, 6 skipped**.
+  - [x] Chaos tests (`PackageCommandsChaosTest`, `WorkspaceCommandsChaosTest`, `StateChaosMachineTest`) pass with 100% success.
+- [x] **3.4. Final Cleanup & Commit**
+  - [x] Clean, atomic commits created across both packages.

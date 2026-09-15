@@ -22,7 +22,7 @@ class WorkspaceInstallCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'workspace:install
+    protected $signature = 'workspace-manifest:install
         {--force : Force overwrite existing manifest and runner files}';
 
     /**

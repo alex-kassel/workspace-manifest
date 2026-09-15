@@ -63,6 +63,7 @@ Goal: Evaluate ManifestEngine compatibility, verify boundary purity, update docu
   - [x] Verified `Manifest::mutate` and `ManifestValidationException` correctly enforce schema invariants across package definitions.
 - [x] **2.2. DTO Serialization Parity**
   - [x] Verified `PackageDefinition` and `WorkspaceDefinition` map cleanly to and from array structures without requiring changes to ManifestEngine core.
+  - [x] Implemented native `WorkspaceManifestDto` (implements `ManifestDto`), wiring `WorkspaceManifest::toDto()` and `saveDto()` directly to `ManifestEngine`, eliminating manual array-loop hydration and reducing code boilerplate.
 - [x] **2.3. Documentation & Packagist Readiness**
   - [x] Updated `README.md` with complete API reference, examples, and badge links.
   - [x] Updated `composer.json` with metadata, homepage, script aliases, and validated via `composer validate --strict`.

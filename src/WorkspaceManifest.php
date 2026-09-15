@@ -7,6 +7,7 @@ namespace AlexKassel\WorkspaceManifest;
 use AlexKassel\ManifestEngine\Manifest;
 use AlexKassel\WorkspaceManifest\DTOs\PackageDefinition;
 use AlexKassel\WorkspaceManifest\DTOs\WorkspaceDefinition;
+use AlexKassel\WorkspaceManifest\DTOs\WorkspaceManifestDto;
 use AlexKassel\WorkspaceManifest\Exceptions\InvalidWorkspacePathException;
 use AlexKassel\WorkspaceManifest\Exceptions\PackageConflictException;
 use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
@@ -118,6 +119,24 @@ class WorkspaceManifest
     }
 
     /**
+     * Hydrate the workspace manifest into a typed WorkspaceManifestDto.
+     */
+    public function toDto(): WorkspaceManifestDto
+    {
+        return $this->manifest->toDto(WorkspaceManifestDto::class);
+    }
+
+    /**
+     * Save a typed WorkspaceManifestDto back to the manifest.
+     */
+    public function saveDto(WorkspaceManifestDto $dto): self
+    {
+        $this->manifest->saveDto($dto);
+
+        return $this;
+    }
+
+    /**
      * Get default workspace name.
      */
     public function getDefaultWorkspace(): ?string
@@ -184,29 +203,7 @@ class WorkspaceManifest
      */
     public function getWorkspaceDefinitions(): array
     {
-        $definitions = [];
-
-        foreach ($this->getWorkspaces() as $wsName => $wsConfig) {
-            $packages = [];
-            foreach ($wsConfig['packages'] as $item) {
-                $name = is_array($item) ? $item['name'] : (string) $item;
-                $packages[] = new PackageDefinition(
-                    name: $name,
-                    workspace: $wsName,
-                    alias: is_array($item) ? ($item['alias'] ?? null) : null,
-                    url: is_array($item) ? ($item['url'] ?? null) : null,
-                    skills: is_array($item) ? (array) ($item['skills'] ?? []) : [],
-                );
-            }
-
-            $definitions[$wsName] = new WorkspaceDefinition(
-                name: $wsName,
-                vendor: $wsConfig['vendor'] ?? null,
-                packages: $packages,
-            );
-        }
-
-        return $definitions;
+        return $this->toDto()->workspaces;
     }
 
     /**
@@ -341,22 +338,13 @@ class WorkspaceManifest
      */
     public function getPackageNames(?string $workspace = null): array
     {
-        $packages = [];
-
-        $targets = $workspace !== null
-            ? [$workspace => (array) $this->manifest->get('workspaces.'.self::normalizeWorkspacePath($workspace).'.packages', [])]
-            : $this->getRawPackages();
-
-        foreach ($targets as $items) {
-            foreach ($items as $item) {
-                $name = is_array($item) ? ($item['name'] ?? null) : (string) $item;
-                if ($name !== null && trim($name) !== '') {
-                    $packages[] = $name;
-                }
-            }
+        try {
+            $cleanWorkspace = $workspace !== null ? self::normalizeWorkspacePath($workspace) : null;
+        } catch (InvalidWorkspacePathException) {
+            return [];
         }
 
-        return array_values(array_unique($packages));
+        return $this->toDto()->packageNames($cleanWorkspace);
     }
 
     /**
@@ -373,9 +361,7 @@ class WorkspaceManifest
      */
     public function findPackageWorkspace(string $packageName): ?string
     {
-        $pkg = $this->getPackage($packageName);
-
-        return $pkg?->workspace;
+        return $this->toDto()->findPackageWorkspace($packageName);
     }
 
     /**
@@ -383,49 +369,13 @@ class WorkspaceManifest
      */
     public function getPackage(string $packageName, ?string $workspace = null): ?PackageDefinition
     {
-        $targetWorkspaces = $workspace !== null
-            ? [self::normalizeWorkspacePath($workspace) => $this->manifest->get('workspaces.'.self::normalizeWorkspacePath($workspace))]
-            : $this->getWorkspaces();
-
-        $lowerTarget = strtolower($packageName);
-
-        foreach ($targetWorkspaces as $wsKey => $wsConfig) {
-            if (! is_array($wsConfig)) {
-                continue;
-            }
-
-            $vendor = $wsConfig['vendor'] ?? null;
-            $items = (array) ($wsConfig['packages'] ?? []);
-
-            foreach ($items as $item) {
-                $name = is_array($item) ? ($item['name'] ?? '') : (string) $item;
-                if ($name === '') {
-                    continue;
-                }
-
-                $alias = is_array($item) ? ($item['alias'] ?? null) : null;
-                $canonicalName = ($vendor !== null && ! str_contains($name, '/'))
-                    ? strtolower($vendor).'/'.$name
-                    : $name;
-
-                // Match exact name, canonical vendor name, or alias
-                if (
-                    strtolower($name) === $lowerTarget
-                    || strtolower($canonicalName) === $lowerTarget
-                    || ($alias !== null && strtolower($alias) === $lowerTarget)
-                ) {
-                    return new PackageDefinition(
-                        name: $name,
-                        workspace: (string) $wsKey,
-                        alias: $alias,
-                        url: is_array($item) ? ($item['url'] ?? null) : null,
-                        skills: is_array($item) ? (array) ($item['skills'] ?? []) : [],
-                    );
-                }
-            }
+        try {
+            $cleanWorkspace = $workspace !== null ? self::normalizeWorkspacePath($workspace) : null;
+        } catch (InvalidWorkspacePathException) {
+            return null;
         }
 
-        return null;
+        return $this->toDto()->findPackage($packageName, $cleanWorkspace);
     }
 
     /**

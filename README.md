@@ -117,6 +117,8 @@ $definitions = WorkspaceManifest::getWorkspaceDefinitions();
 
 ### Workspace Operations
 
+- `toDto(): WorkspaceManifestDto`
+- `saveDto(WorkspaceManifestDto $dto): self`
 - `getDefaultWorkspace(): ?string`
 - `setDefaultWorkspace(?string $workspace): self`
 - `getRepositoryUrlTemplate(): string`

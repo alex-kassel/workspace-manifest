@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest open(string $path = 'workspace.json')
+ * @method static \AlexKassel\WorkspaceManifest\DTOs\WorkspaceManifestDto toDto()
+ * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest saveDto(\AlexKassel\WorkspaceManifest\DTOs\WorkspaceManifestDto $dto)
  * @method static string normalizeWorkspacePath(string $path)
  * @method static ?string getDefaultWorkspace()
  * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest setDefaultWorkspace(?string $workspace)

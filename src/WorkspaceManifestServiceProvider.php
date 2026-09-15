@@ -14,6 +14,12 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
             __DIR__.'/../config/workspace-manifest.php',
             'workspace-manifest'
         );
+
+        $this->app->singleton(WorkspaceManifest::class, function ($app) {
+            $path = (string) config('workspace-manifest.path', function_exists('base_path') ? base_path('workspace.json') : 'workspace.json');
+
+            return WorkspaceManifest::open($path);
+        });
     }
 
     public function boot(): void
@@ -22,21 +28,6 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../config/workspace-manifest.php' => config_path('workspace-manifest.php'),
             ], 'workspace-manifest-config');
-
-            $skillsSource = is_dir(__DIR__.'/../resources/boost/skills')
-                ? __DIR__.'/../resources/boost/skills'
-                : __DIR__.'/../resources/skills';
-
-            if (is_dir($skillsSource)) {
-                $targetPaths = (array) config('workspace-manifest.skills_path', ['.agents/skills']);
-                $publishes = [];
-
-                foreach ($targetPaths as $targetPath) {
-                    $publishes[$skillsSource] = base_path($targetPath);
-                }
-
-                $this->publishes($publishes, 'workspace-manifest-skills');
-            }
         }
     }
 }

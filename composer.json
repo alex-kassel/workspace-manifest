@@ -1,16 +1,24 @@
 {
     "name": "alex-kassel/workspace-manifest",
-    "description": "WorkspaceManifest package for Laravel.",
+    "description": "Domain manifest repository and schema for multi-package workspace.json configurations",
     "license": "MIT",
     "type": "library",
+    "keywords": [
+        "laravel",
+        "workspace",
+        "manifest",
+        "packages",
+        "monorepo"
+    ],
     "authors": [
         {
-            "name": "AlexKassel",
+            "name": "Alex Kassel",
             "role": "Developer"
         }
     ],
     "require": {
-        "php": "^8.2",
+        "php": "^8.2|^8.3",
+        "alex-kassel/manifest-engine": "^0.0.1",
         "illuminate/support": "^11.0|^12.0|^13.0"
     },
     "require-dev": {

@@ -5,12 +5,11 @@ declare(strict_types=1);
 return [
     /*
     |--------------------------------------------------------------------------
-    | Agent Skills Target Path
+    | Workspace Manifest File Path
     |--------------------------------------------------------------------------
     |
-    | Relative path(s) from base_path() where agent skills should be published.
-    | Supports a single string path or an array of multiple paths.
+    | The default absolute or relative path to the workspace.json manifest file.
     |
     */
-    'skills_path' => '.agents/skills',
+    'path' => env('WORKSPACE_MANIFEST_PATH', base_path('workspace.json')),
 ];

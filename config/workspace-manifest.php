@@ -8,8 +8,9 @@ return [
     | Workspace Manifest File Path
     |--------------------------------------------------------------------------
     |
-    | The default absolute or relative path to the workspace.json manifest file.
+    | The path to the workspace manifest JSON file. Leave null to use the
+    | package's internal default filename (workspace.json).
     |
     */
-    'path' => env('WORKSPACE_MANIFEST_PATH', base_path('workspace.json')),
+    'path' => env('WORKSPACE_MANIFEST_PATH', null),
 ];

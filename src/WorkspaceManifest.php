@@ -9,10 +9,14 @@ use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
 
 class WorkspaceManifest
 {
+    public const DEFAULT_FILENAME = 'workspace.json';
+
+    public const DEFAULT_REPOSITORY_URL_TEMPLATE = 'git@github.com:{package}.git';
+
     protected Manifest $manifest;
 
     public function __construct(
-        Manifest|string $manifest = 'workspace.json',
+        Manifest|string $manifest = self::DEFAULT_FILENAME,
     ) {
         if (is_string($manifest)) {
             $this->manifest = Manifest::open($manifest, new WorkspaceSchema);
@@ -24,7 +28,7 @@ class WorkspaceManifest
     /**
      * Open a WorkspaceManifest instance for given path.
      */
-    public static function open(string $path = 'workspace.json'): self
+    public static function open(string $path = self::DEFAULT_FILENAME): self
     {
         return new self($path);
     }
@@ -78,7 +82,7 @@ class WorkspaceManifest
      */
     public function getRepositoryUrlTemplate(): string
     {
-        return (string) $this->manifest->get('repository_url_template', 'git@github.com:{package}.git');
+        return (string) $this->manifest->get('repository_url_template', self::DEFAULT_REPOSITORY_URL_TEMPLATE);
     }
 
     /**

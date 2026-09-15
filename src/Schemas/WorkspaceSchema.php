@@ -9,6 +9,10 @@ use AlexKassel\WorkspaceManifest\Rules\ValidPackageEntryRule;
 
 class WorkspaceSchema extends BaseSchema
 {
+    public const DEFAULT_SCHEMA_PATH = './packages/alex-kassel/workspace-manifest/resources/schema.json';
+
+    public const DEFAULT_REPOSITORY_URL_TEMPLATE = 'git@github.com:{package}.git';
+
     /**
      * Default state when a new workspace manifest is initialized.
      *
@@ -17,9 +21,9 @@ class WorkspaceSchema extends BaseSchema
     public function defaults(): array
     {
         return [
-            '$schema' => './packages/alex-kassel/workspace-manifest/resources/schema.json',
+            '$schema' => self::DEFAULT_SCHEMA_PATH,
             'default' => null,
-            'repository_url_template' => 'git@github.com:{package}.git',
+            'repository_url_template' => self::DEFAULT_REPOSITORY_URL_TEMPLATE,
             'workspaces' => [],
         ];
     }

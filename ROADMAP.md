@@ -55,14 +55,17 @@ Goal: Enhance `alex-kassel/workspace-manifest` to satisfy all requirements of th
 
 ---
 
-## Phase 2: Manifest Engine Evaluation
+## Phase 2: Manifest Engine Evaluation & Packagist Readiness
 
-Goal: Evaluate if any low-level features developed in Phase 1 warrant abstraction into `alex-kassel/manifest-engine`.
+Goal: Evaluate ManifestEngine compatibility, verify boundary purity, update documentation, and prepare WorkspaceManifest for Packagist release.
 
-- [ ] **2.1. Nested Collection Validation Review**
-  - [ ] Ensure `Manifest::mutate` provides clean error reporting when validation rules on wildcard paths fail.
-- [ ] **2.2. DTO Serialization Parity**
-  - [ ] Verify `toDto()` / `saveDto()` integration works seamlessly with nested domain collections if needed.
+- [x] **2.1. Nested Collection Validation Review**
+  - [x] Verified `Manifest::mutate` and `ManifestValidationException` correctly enforce schema invariants across package definitions.
+- [x] **2.2. DTO Serialization Parity**
+  - [x] Verified `PackageDefinition` and `WorkspaceDefinition` map cleanly to and from array structures without requiring changes to ManifestEngine core.
+- [x] **2.3. Documentation & Packagist Readiness**
+  - [x] Updated `README.md` with complete API reference, examples, and badge links.
+  - [x] Updated `composer.json` with metadata, homepage, script aliases, and validated via `composer validate --strict`.
 
 ---
 

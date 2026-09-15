@@ -1,29 +1,32 @@
 {
     "name": "alex-kassel/workspace-manifest",
     "description": "Domain manifest repository and schema for multi-package workspace.json configurations",
-    "license": "MIT",
-    "type": "library",
     "keywords": [
         "laravel",
         "workspace",
         "manifest",
         "packages",
-        "monorepo"
+        "monorepo",
+        "flat-file"
     ],
+    "homepage": "https://github.com/alex-kassel/workspace-manifest",
+    "type": "library",
+    "license": "MIT",
     "authors": [
         {
             "name": "Alex Kassel",
-            "role": "Developer"
+            "homepage": "https://github.com/alex-kassel"
         }
     ],
     "bin": [
         "bin/workspace"
     ],
     "require": {
-        "php": "^8.2|^8.3",
+        "php": "^8.2|^8.3|^8.4",
         "alex-kassel/manifest-engine": "^0.0.5",
         "alex-kassel/stub-engine": "^0.0.2",
-        "illuminate/support": "^11.0|^12.0|^13.0"
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "illuminate/filesystem": "^11.0|^12.0|^13.0"
     },
     "require-dev": {
         "orchestra/testbench": "^9.0|^10.0",
@@ -43,7 +46,16 @@
         "laravel": {
             "providers": [
                 "AlexKassel\\WorkspaceManifest\\WorkspaceManifestServiceProvider"
-            ]
+            ],
+            "aliases": {
+                "WorkspaceManifest": "AlexKassel\\WorkspaceManifest\\Facades\\WorkspaceManifest"
+            }
         }
-    }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "analyse": "vendor/bin/phpstan analyse -c phpstan.neon"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }

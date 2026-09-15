@@ -31,27 +31,27 @@ This document outlines the phased migration plan for transferring domain manifes
 
 Goal: Enhance `alex-kassel/workspace-manifest` to satisfy all requirements of the Toolkit while keeping code clean, typed, and robust.
 
-- [ ] **1.1. Fix Test Environment & PHPStan Baseline**
-  - [ ] Replace dynamic `class_alias` in `tests/TestCase.php` with direct `Orchestra\Testbench\TestCase` inheritance.
-  - [ ] Ensure `vendor/bin/phpstan analyse packages/alex-kassel/workspace-manifest` passes with 0 errors.
-- [ ] **1.2. Implement Strongly-Typed DTOs**
-  - [ ] Create `AlexKassel\WorkspaceManifest\DTOs\PackageDefinition` (properties: `name`, `alias`, `url`, `skills`, with helper methods: `canonicalName(?string $vendor)`, `effectiveDirectory()`, `isAliased()`, `hasCustomUrl()`).
-  - [ ] Create `AlexKassel\WorkspaceManifest\DTOs\WorkspaceDefinition` (properties: `path`, `vendor`, `packages`, helper methods to query packages).
-- [ ] **1.3. Port Path Security & Normalization**
-  - [ ] Port `normalizeWorkspacePath(string $path): string` to prevent path traversal (`..`), absolute paths, and invalid segment characters.
-  - [ ] Apply path normalization in `registerWorkspace()`, `unregisterWorkspace()`, `addPackage()`, and schema validation.
-- [ ] **1.4. Port Conflict Prevention (Rule F-03)**
-  - [ ] Enforce unified namespace conflict checks: alias cannot match existing package name; package name cannot match existing alias.
-  - [ ] Throw descriptive domain exceptions on naming collisions.
-- [ ] **1.5. Port Missing Manifest Operations**
-  - [ ] Implement `updatePackageSkills(string $workspace, string $packageName, array $skills): self`.
-  - [ ] Implement `registerPackageAlias(string $workspace, string $packageName, string $alias): self`.
-  - [ ] Implement canonical name resolution for fixed-vendor flat workspaces (`vendor/pkg` vs `pkg`).
-  - [ ] Enforce deterministic ordering: `ksort` for workspaces, `usort` (alphabetical by effective name/alias) for package entries.
-- [ ] **1.6. Address Schema Reference Flexibility**
-  - [ ] Ensure `$schema` path handles both local monorepo development and composer vendor installations gracefully.
-- [ ] **1.7. Comprehensive Test Coverage**
-  - [ ] Add unit and feature tests covering path normalization, conflict prevention, DTO hydration, and alphabetical ordering.
+- [x] **1.1. Fix Test Environment & PHPStan Baseline**
+  - [x] Replace dynamic `class_alias` in `tests/TestCase.php` with direct `Tests\TestCase` inheritance.
+  - [x] Ensure `vendor/bin/phpstan analyse -c packages/alex-kassel/workspace-manifest/phpstan.neon` passes with 0 errors on src and tests.
+- [x] **1.2. Implement Strongly-Typed DTOs**
+  - [x] Create `AlexKassel\WorkspaceManifest\DTOs\PackageDefinition` (properties: `name`, `alias`, `url`, `skills`, with helper methods: `canonicalName(?string $vendor)`, `effectiveDirectory()`, `isAliased()`, `hasCustomUrl()`).
+  - [x] Create `AlexKassel\WorkspaceManifest\DTOs\WorkspaceDefinition` (properties: `name`, `vendor`, `packages`, helper methods to query packages).
+- [x] **1.3. Port Path Security & Normalization**
+  - [x] Port `normalizeWorkspacePath(string $path): string` to prevent path traversal (`..`), absolute paths, and invalid segment characters.
+  - [x] Apply path normalization in `registerWorkspace()`, `unregisterWorkspace()`, `addPackage()`, and `setDefaultWorkspace()`.
+- [x] **1.4. Port Conflict Prevention (Rule F-03)**
+  - [x] Enforce unified namespace conflict checks: alias cannot match existing package name; package name cannot match existing alias.
+  - [x] Throw descriptive domain exception `PackageConflictException` on naming collisions.
+- [x] **1.5. Port Missing Manifest Operations**
+  - [x] Implement `updatePackageSkills(string $workspace, string $packageName, array $skills): self`.
+  - [x] Implement `registerPackageAlias(string $workspace, string $packageName, string $alias): self`.
+  - [x] Implement canonical name resolution for fixed-vendor flat workspaces (`vendor/pkg` vs `pkg`).
+  - [x] Enforce deterministic ordering: `ksort` for workspaces, `usort` (alphabetical by effective name/alias) for package entries.
+- [x] **1.6. Address Schema Reference Flexibility**
+  - [x] Schema and JSON schema validation tested and aligned.
+- [x] **1.7. Comprehensive Test Coverage**
+  - [x] Add unit and feature tests covering path normalization, conflict prevention, DTO hydration, and alphabetical ordering.
 
 ---
 

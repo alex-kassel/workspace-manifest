@@ -6,19 +6,12 @@ namespace AlexKassel\WorkspaceManifest\Tests;
 
 use AlexKassel\WorkspaceManifest\WorkspaceManifestServiceProvider;
 use Illuminate\Foundation\Application;
-
-if (class_exists(\Orchestra\Testbench\TestCase::class)) {
-    class_alias(\Orchestra\Testbench\TestCase::class, __NAMESPACE__.'\BaseTestCase');
-} elseif (class_exists(\Tests\TestCase::class)) {
-    class_alias(\Tests\TestCase::class, __NAMESPACE__.'\BaseTestCase');
-} else {
-    class_alias(\PHPUnit\Framework\TestCase::class, __NAMESPACE__.'\BaseTestCase');
-}
+use Tests\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
     /**
-     * Get package providers for Orchestra Testbench.
+     * Get package providers for Orchestra Testbench or Laravel.
      *
      * @param  Application  $app
      * @return array<int, class-string>

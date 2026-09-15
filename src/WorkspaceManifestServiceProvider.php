@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace AlexKassel\WorkspaceManifest;
 
 use AlexKassel\ManifestEngine\ManifestRegistry;
+use AlexKassel\WorkspaceManifest\Console\Commands\WorkspaceInstallCommand;
 use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
+use AlexKassel\WorkspaceManifest\Services\WorkspaceRunnerInstaller;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\ServiceProvider;
 
 class WorkspaceManifestServiceProvider extends ServiceProvider
@@ -17,6 +20,8 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
     public const REGISTRATION_NAME = 'workspace';
 
     public const REGISTRATION_DESCRIPTION = 'Multi-package workspace monorepo configuration';
+
+    public const METADATA_RUNNER_PATH_KEY = 'runnerPath';
 
     public function register(): void
     {
@@ -37,6 +42,12 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
 
             return WorkspaceManifest::open($fullPath);
         });
+
+        $this->app->singleton(WorkspaceRunnerInstaller::class, function ($app) {
+            return new WorkspaceRunnerInstaller(
+                files: $app->make(Filesystem::class),
+            );
+        });
     }
 
     public function boot(): void
@@ -45,6 +56,10 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../config/workspace-manifest.php' => config_path('workspace-manifest.php'),
             ], 'workspace-manifest-config');
+
+            $this->commands([
+                WorkspaceInstallCommand::class,
+            ]);
         }
 
         if ($this->app->bound(ManifestRegistry::class)) {
@@ -65,8 +80,10 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
                 name: self::REGISTRATION_NAME,
                 filename: $relativeFilename !== '' ? $relativeFilename : WorkspaceManifest::DEFAULT_FILENAME,
                 schema: WorkspaceSchema::class,
-                runnerPath: __DIR__.'/../stubs/workspace.stub',
                 description: self::REGISTRATION_DESCRIPTION,
+                metadata: [
+                    self::METADATA_RUNNER_PATH_KEY => __DIR__.'/../stubs/workspace.stub',
+                ],
             );
         }
     }

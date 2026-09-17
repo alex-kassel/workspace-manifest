@@ -7,8 +7,10 @@ namespace AlexKassel\WorkspaceManifest\Tests;
 use AlexKassel\ManifestEngine\Exceptions\ManifestValidationException;
 use AlexKassel\WorkspaceManifest\DTOs\PackageDefinition;
 use AlexKassel\WorkspaceManifest\DTOs\WorkspaceDefinition;
+use AlexKassel\WorkspaceManifest\DTOs\WorkspaceManifestDto;
 use AlexKassel\WorkspaceManifest\Exceptions\InvalidWorkspacePathException;
 use AlexKassel\WorkspaceManifest\Exceptions\PackageConflictException;
+use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
 use AlexKassel\WorkspaceManifest\WorkspaceManifest;
 use Illuminate\Support\Facades\File;
 
@@ -22,8 +24,8 @@ class WorkspaceManifestTest extends TestCase
     {
         parent::setUp();
 
-        $this->testDir = sys_get_temp_dir().'/workspace_manifest_test_'.uniqid();
-        File::makeDirectory($this->testDir, 0755, true);
+        $this->testDir = storage_path('framework/testing/workspace_manifest_'.bin2hex(random_bytes(6)));
+        File::ensureDirectoryExists($this->testDir);
         $this->manifestPath = $this->testDir.'/workspace.json';
     }
 
@@ -48,7 +50,7 @@ class WorkspaceManifestTest extends TestCase
         $this->assertSame([], $wm->getWorkspaces());
         $this->assertSame([], $wm->getWorkspaceNames());
         $this->assertSame([], $wm->getWorkspaceDefinitions());
-        $this->assertSame('./packages/alex-kassel/workspace-manifest/resources/schema.json', $wm->manifest()->get('$schema'));
+        $this->assertSame(WorkspaceSchema::DEFAULT_SCHEMA_PATH, $wm->manifest()->get('$schema'));
     }
 
     public function test_path_normalization_and_validation(): void
@@ -56,9 +58,44 @@ class WorkspaceManifestTest extends TestCase
         $this->assertSame('packages', WorkspaceManifest::normalizeWorkspacePath('packages'));
         $this->assertSame('packages/sub', WorkspaceManifest::normalizeWorkspacePath('packages/sub/'));
         $this->assertSame('packages/sub', WorkspaceManifest::normalizeWorkspacePath('packages\\sub\\'));
+        $this->assertSame('packages/sub', WorkspaceManifest::normalizeWorkspacePath('packages/temp/../sub'));
+        $this->assertSame('packages/@scoped/sub', WorkspaceManifest::normalizeWorkspacePath('packages/@scoped/sub'));
+        $this->assertSame('packages/~shared', WorkspaceManifest::normalizeWorkspacePath('packages/~shared'));
+        $this->assertSame('packages/+modules', WorkspaceManifest::normalizeWorkspacePath('packages/+modules'));
 
+        // Rejects path traversal escaping workspace root
+        try {
+            WorkspaceManifest::normalizeWorkspacePath('../evil-path');
+            $this->fail('Expected InvalidWorkspacePathException for ../evil-path');
+        } catch (InvalidWorkspacePathException $e) {
+            $this->assertInstanceOf(InvalidWorkspacePathException::class, $e);
+        }
+
+        try {
+            WorkspaceManifest::normalizeWorkspacePath('packages/../../evil');
+            $this->fail('Expected InvalidWorkspacePathException for packages/../../evil');
+        } catch (InvalidWorkspacePathException $e) {
+            $this->assertInstanceOf(InvalidWorkspacePathException::class, $e);
+        }
+
+        // Rejects absolute paths
+        try {
+            WorkspaceManifest::normalizeWorkspacePath('/packages');
+            $this->fail('Expected InvalidWorkspacePathException for /packages');
+        } catch (InvalidWorkspacePathException $e) {
+            $this->assertInstanceOf(InvalidWorkspacePathException::class, $e);
+        }
+
+        try {
+            WorkspaceManifest::normalizeWorkspacePath('C:\\packages');
+            $this->fail('Expected InvalidWorkspacePathException for C:\\packages');
+        } catch (InvalidWorkspacePathException $e) {
+            $this->assertInstanceOf(InvalidWorkspacePathException::class, $e);
+        }
+
+        // Rejects empty / root paths
         $this->expectException(InvalidWorkspacePathException::class);
-        WorkspaceManifest::normalizeWorkspacePath('../evil-path');
+        WorkspaceManifest::normalizeWorkspacePath('.');
     }
 
     public function test_register_and_unregister_workspace(): void
@@ -224,5 +261,116 @@ class WorkspaceManifestTest extends TestCase
         $this->assertSame('http://json-schema.org/draft-07/schema#', $schema['$schema'] ?? null);
         $this->assertSame('WorkspaceManifest', $schema['title'] ?? null);
         $this->assertArrayHasKey('workspaces', $schema['properties'] ?? []);
+    }
+
+    public function test_fixed_vendor_workspace_package_handling_and_different_vendor_support(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+        $wm->registerWorkspace('modules', vendor: 'acme');
+
+        // 1. Add short package name to fixed-vendor workspace
+        $wm->addPackage('modules', 'billing');
+        $this->assertTrue($wm->hasPackage('billing'));
+        $this->assertTrue($wm->hasPackage('acme/billing'));
+        $this->assertSame(['billing'], $wm->getRawPackages('modules'));
+
+        // 2. Re-add package using full canonical name with matching vendor -> updates without duplicate
+        $wm->addPackage('modules', 'acme/billing', alias: 'BillingModule');
+        $this->assertCount(1, $wm->getPackageNames('modules'));
+        $fresh = WorkspaceManifest::open($this->manifestPath);
+        $raw = $fresh->getRawPackages('modules');
+        $this->assertCount(1, $raw);
+        $this->assertIsArray($raw[0]);
+        $this->assertSame('billing', $raw[0]['name']);
+        $this->assertSame('BillingModule', $raw[0]['alias']);
+
+        // 3. Add package with a DIFFERENT vendor to the same workspace -> preserves foreign vendor
+        $wm->addPackage('modules', 'third-party/invoicing');
+        $this->assertCount(2, $wm->getPackageNames('modules'));
+        $this->assertTrue($wm->hasPackage('third-party/invoicing'));
+        $this->assertFalse($wm->hasPackage('invoicing'));
+
+        $pkgForeign = $wm->getPackage('third-party/invoicing');
+        $this->assertNotNull($pkgForeign);
+        $this->assertSame('third-party/invoicing', $pkgForeign->name);
+        $this->assertSame('third-party/invoicing', $pkgForeign->canonicalName('acme'));
+
+        $pkgDefault = $wm->getPackage('billing');
+        $this->assertNotNull($pkgDefault);
+        $this->assertSame('billing', $pkgDefault->name);
+        $this->assertSame('acme/billing', $pkgDefault->canonicalName('acme'));
+
+        // 4. Remove by canonical name
+        $removed = $wm->removePackage('acme/billing', 'modules');
+        $this->assertTrue($removed);
+        $this->assertFalse($wm->hasPackage('billing'));
+        $this->assertTrue($wm->hasPackage('third-party/invoicing'));
+
+        // 5. Remove foreign package
+        $removedForeign = $wm->removePackage('third-party/invoicing', 'modules');
+        $this->assertTrue($removedForeign);
+        $this->assertEmpty($wm->getRawPackages('modules'));
+    }
+
+    public function test_workspace_manifest_to_dto_and_save_dto_integration(): void
+    {
+        $manifest = WorkspaceManifest::open($this->manifestPath)->init();
+        $manifest->registerWorkspace('packages');
+        $manifest->addPackage('packages', 'acme/core');
+
+        // Hydrate via toDto()
+        $dto = $manifest->toDto();
+        $this->assertInstanceOf(WorkspaceManifestDto::class, $dto);
+        $this->assertTrue($dto->hasWorkspace('packages'));
+        $this->assertTrue($dto->hasPackage('acme/core'));
+
+        // Mutate DTO and persist via saveDto()
+        $newWs = new WorkspaceDefinition(
+            name: 'modules',
+            vendor: 'myvendor',
+            packages: [
+                new PackageDefinition(name: 'invoicing', workspace: 'modules', alias: 'Invoicing'),
+            ],
+        );
+
+        $updatedDto = $dto->withWorkspace($newWs);
+        $manifest->saveDto($updatedDto);
+
+        // Reload manifest from disk and verify
+        $freshManifest = WorkspaceManifest::open($this->manifestPath);
+        $this->assertTrue($freshManifest->hasWorkspace('modules'));
+        $this->assertTrue($freshManifest->hasPackage('myvendor/invoicing'));
+        $this->assertSame('modules', $freshManifest->findPackageWorkspace('Invoicing'));
+
+        $pkg = $freshManifest->getPackage('invoicing', 'modules');
+        $this->assertNotNull($pkg);
+        $this->assertSame('Invoicing', $pkg->alias);
+    }
+
+    public function test_workspace_manifest_caches_hydrated_dto_and_invalidates_on_mutation(): void
+    {
+        $manifest = WorkspaceManifest::open($this->manifestPath)->init();
+        $manifest->registerWorkspace('packages', 'acme');
+
+        // First hydration caches the DTO
+        $dto1 = $manifest->toDto();
+        $dto2 = $manifest->toDto();
+        $this->assertSame($dto1, $dto2);
+
+        // Mutation invalidates the cache
+        $manifest->addPackage('packages', 'logger');
+        $dto3 = $manifest->toDto();
+        $this->assertNotSame($dto1, $dto3);
+        $this->assertTrue($dto3->hasPackage('acme/logger'));
+
+        // Clear cache explicitly
+        $manifest->clearCache();
+        $dto4 = $manifest->toDto();
+        $this->assertNotSame($dto3, $dto4);
+
+        // saveDto sets the cache
+        $dto5 = $dto4->withWorkspace('tools');
+        $manifest->saveDto($dto5);
+        $this->assertSame($dto5, $manifest->toDto());
     }
 }

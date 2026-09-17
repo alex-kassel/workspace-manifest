@@ -9,7 +9,7 @@ use AlexKassel\WorkspaceManifest\Rules\ValidPackageEntryRule;
 
 class WorkspaceSchema extends BaseSchema
 {
-    public const DEFAULT_SCHEMA_PATH = './packages/alex-kassel/workspace-manifest/resources/schema.json';
+    public const DEFAULT_SCHEMA_PATH = 'https://raw.githubusercontent.com/alex-kassel/workspace-manifest/main/resources/schema.json';
 
     public const DEFAULT_REPOSITORY_URL_TEMPLATE = 'git@github.com:{package}.git';
 
@@ -110,7 +110,9 @@ class WorkspaceSchema extends BaseSchema
                                                 ],
                                                 'skills' => [
                                                     'type' => 'array',
-                                                    'items' => ['type' => 'string'],
+                                                    'items' => [
+                                                        'type' => 'string',
+                                                    ],
                                                     'description' => 'Agent skills assigned to this package.',
                                                 ],
                                             ],

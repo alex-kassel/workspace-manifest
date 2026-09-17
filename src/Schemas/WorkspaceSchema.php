@@ -49,91 +49,49 @@ class WorkspaceSchema extends BaseSchema
     }
 
     /**
-     * Full JSON Schema (Draft-07) definition for IDE autocomplete and linting.
-     *
-     * @return array<string, mixed>
+     * Optional title for JSON Schema.
      */
-    public function jsonSchema(): array
+    public function title(): ?string
+    {
+        return 'WorkspaceManifest';
+    }
+
+    /**
+     * Optional description for JSON Schema.
+     */
+    public function description(): ?string
+    {
+        return 'Multi-package workspace configuration for Laravel and PHP ecosystems.';
+    }
+
+    /**
+     * Human-readable descriptions for schema fields.
+     *
+     * @return array<string, string>
+     */
+    public function descriptions(): array
     {
         return [
-            '$schema' => 'http://json-schema.org/draft-07/schema#',
-            'title' => 'WorkspaceManifest',
-            'description' => 'Multi-package workspace configuration for Laravel and PHP ecosystems.',
-            'type' => 'object',
-            'properties' => [
-                '$schema' => [
-                    'type' => 'string',
-                    'description' => 'Path or URL to the JSON Schema specification.',
-                ],
-                'default' => [
-                    'type' => ['string', 'null'],
-                    'description' => 'The default workspace directory (e.g. "packages").',
-                ],
-                'repository_url_template' => [
-                    'type' => 'string',
-                    'description' => 'Git repository remote clone template (e.g. "git@github.com:{package}.git").',
-                ],
-                'workspaces' => [
-                    'type' => 'object',
-                    'description' => 'Map of registered workspace directories and their configurations.',
-                    'additionalProperties' => [
-                        'type' => 'object',
-                        'properties' => [
-                            'vendor' => [
-                                'type' => ['string', 'null'],
-                                'description' => 'Optional vendor namespace prefix for flat workspaces.',
-                            ],
-                            'packages' => [
-                                'type' => 'array',
-                                'description' => 'List of registered packages in this workspace.',
-                                'items' => [
-                                    'oneOf' => [
-                                        [
-                                            'type' => 'string',
-                                            'description' => 'Package name in vendor/package format (e.g. "acme/billing").',
-                                        ],
-                                        [
-                                            'type' => 'object',
-                                            'description' => 'Structured package descriptor with metadata.',
-                                            'properties' => [
-                                                'name' => [
-                                                    'type' => 'string',
-                                                    'description' => 'Package name in vendor/package format.',
-                                                ],
-                                                'alias' => [
-                                                    'type' => 'string',
-                                                    'description' => 'Directory alias for flat workspaces (e.g. "Billing").',
-                                                ],
-                                                'url' => [
-                                                    'type' => 'string',
-                                                    'description' => 'Custom Git repository remote URL.',
-                                                ],
-                                                'skills' => [
-                                                    'type' => 'array',
-                                                    'items' => [
-                                                        'type' => 'string',
-                                                    ],
-                                                    'description' => 'Agent skills assigned to this package.',
-                                                ],
-                                            ],
-                                            'required' => ['name'],
-                                            'additionalProperties' => true,
-                                        ],
-                                    ],
-                                ],
-                            ],
-                            'hooks' => [
-                                'type' => 'object',
-                                'description' => 'Lifecycle workspace hooks and triggers.',
-                            ],
-                        ],
-                        'required' => ['packages'],
-                        'additionalProperties' => true,
-                    ],
-                ],
-            ],
-            'required' => ['workspaces'],
-            'additionalProperties' => true,
+            '$schema' => 'Path or URL to the JSON Schema specification.',
+            'default' => 'The default workspace directory (e.g. "packages").',
+            'repository_url_template' => 'Git repository remote clone template (e.g. "git@github.com:{package}.git").',
+            'workspaces' => 'Map of registered workspace directories and their configurations.',
+            'workspaces.*.vendor' => 'Optional vendor namespace prefix for flat workspaces.',
+            'workspaces.*.packages' => 'List of registered packages in this workspace.',
+            'workspaces.*.hooks' => 'Lifecycle workspace hooks and triggers.',
+        ];
+    }
+
+    /**
+     * Explicit type overrides for JSON Schema generation.
+     *
+     * @return array<string, string>
+     */
+    public function types(): array
+    {
+        return [
+            'workspaces' => 'object',
+            'workspaces.*.hooks' => 'object',
         ];
     }
 }

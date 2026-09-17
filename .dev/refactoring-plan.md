@@ -411,13 +411,12 @@ If redesigned cleanly from first principles:
 
 ### Phase 2: Deduplication, Schema Synchronization & Data Integrity (P2)
 
-- [ ] **Step 2.1: Synchronize JSON Schema to single source of truth [P2]**
-  - **Problem:** 82-line array in `WorkspaceSchema::jsonSchema()` duplicates `resources/schema.json`.
-  - **Solution:** Replace hardcoded array with `File::json(__DIR__.'/../../resources/schema.json')`.
+- [x] **Step 2.1: Dynamic Schema Generation via `ManifestEngine` `JsonSchemaCompiler` [P2]**
+  - **Problem:** 82-line raw array in `WorkspaceSchema::jsonSchema()` duplicated `resources/schema.json` without automated generation.
+  - **Solution:** Implemented `JsonSchemaCompiler` in `ManifestEngine` powered by native `ValidationRuleParser` and `HasJsonSchema` contract on `ValidPackageEntryRule`. `WorkspaceSchema` now declares only `rules()`, `descriptions()`, and `types()`, inheriting dynamic on-the-fly Draft-07 generation from `BaseSchema::jsonSchema()`.
 
-- [ ] **Step 2.2: Preserve arbitrary package metadata in `PackageDefinition` [P2]**
-  - **Problem:** Unrecognized package properties allowed by the schema are dropped during DTO transformation.
-  - **Solution:** Introduce `$extra` array in `PackageDefinition` populated from `fromManifest()` and serialized in `toManifestEntry()`.
+- [x] **Step 2.2: Strict Schema Enforcement (Dropped YAGNI `$extra`) [P2]**
+  - **Decision:** Explicitly dropped arbitrary `$extra` property bag. `workspace.json` is strictly machine-generated and machine-maintained by the package and CLI commands; arbitrary user-injected properties are neither supported nor required. Package schema remains strictly focused on `name`, `alias`, `url`, and `skills`.
 
 - [ ] **Step 2.3: Optimize mutation and eliminate redundant I/O in `removePackage()` [P2]**
   - **Problem:** Target workspace resolved outside lock; non-existent packages trigger full file re-saves.

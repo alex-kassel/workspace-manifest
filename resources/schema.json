@@ -1,40 +1,39 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "WorkspaceManifest",
-    "description": "Multi-package workspace configuration for Laravel and PHP ecosystems.",
     "type": "object",
     "properties": {
         "$schema": {
-            "type": "string",
-            "description": "Path or URL to the JSON Schema specification."
+            "description": "Path or URL to the JSON Schema specification.",
+            "type": "string"
         },
         "default": {
+            "description": "The default workspace directory (e.g. \"packages\").",
             "type": [
                 "string",
                 "null"
-            ],
-            "description": "The default workspace directory (e.g. \"packages\")."
+            ]
         },
         "repository_url_template": {
-            "type": "string",
-            "description": "Git repository remote clone template (e.g. \"git@github.com:{package}.git\")."
+            "description": "Git repository remote clone template (e.g. \"git@github.com:{package}.git\").",
+            "type": "string"
         },
         "workspaces": {
-            "type": "object",
             "description": "Map of registered workspace directories and their configurations.",
+            "type": "object",
             "additionalProperties": {
                 "type": "object",
                 "properties": {
                     "vendor": {
+                        "description": "Optional vendor namespace prefix for flat workspaces.",
                         "type": [
                             "string",
                             "null"
-                        ],
-                        "description": "Optional vendor namespace prefix for flat workspaces."
+                        ]
                     },
                     "packages": {
-                        "type": "array",
                         "description": "List of registered packages in this workspace.",
+                        "type": "array",
                         "items": {
                             "oneOf": [
                                 {
@@ -74,19 +73,20 @@
                         }
                     },
                     "hooks": {
-                        "type": "object",
-                        "description": "Lifecycle workspace hooks and triggers."
+                        "description": "Lifecycle workspace hooks and triggers.",
+                        "type": "object"
                     }
                 },
+                "additionalProperties": true,
                 "required": [
                     "packages"
-                ],
-                "additionalProperties": true
+                ]
             }
         }
     },
     "required": [
         "workspaces"
     ],
-    "additionalProperties": true
+    "additionalProperties": true,
+    "description": "Multi-package workspace configuration for Laravel and PHP ecosystems."
 }

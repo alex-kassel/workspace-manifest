@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace AlexKassel\WorkspaceManifest\Rules;
 
+use AlexKassel\ManifestEngine\Contracts\HasJsonSchema;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Translation\PotentiallyTranslatedString;
 
-class ValidPackageEntryRule implements ValidationRule
+class ValidPackageEntryRule implements HasJsonSchema, ValidationRule
 {
     /**
      * Run the validation rule.
@@ -48,5 +49,49 @@ class ValidPackageEntryRule implements ValidationRule
         }
 
         $fail("The {$attribute} must be a package name string (e.g. 'vendor/pkg') or a package descriptor object with 'name'.");
+    }
+
+    /**
+     * Get the JSON Schema (Draft-07 fragment) for this validation rule.
+     *
+     * @return array<string, mixed>
+     */
+    public function toSchema(): array
+    {
+        return [
+            'oneOf' => [
+                [
+                    'type' => 'string',
+                    'description' => 'Package name in vendor/package format (e.g. "acme/billing").',
+                ],
+                [
+                    'type' => 'object',
+                    'description' => 'Structured package descriptor with metadata.',
+                    'properties' => [
+                        'name' => [
+                            'type' => 'string',
+                            'description' => 'Package name in vendor/package format.',
+                        ],
+                        'alias' => [
+                            'type' => 'string',
+                            'description' => 'Directory alias for flat workspaces (e.g. "Billing").',
+                        ],
+                        'url' => [
+                            'type' => 'string',
+                            'description' => 'Custom Git repository remote URL.',
+                        ],
+                        'skills' => [
+                            'type' => 'array',
+                            'items' => [
+                                'type' => 'string',
+                            ],
+                            'description' => 'Agent skills assigned to this package.',
+                        ],
+                    ],
+                    'required' => ['name'],
+                    'additionalProperties' => true,
+                ],
+            ],
+        ];
     }
 }

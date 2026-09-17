@@ -13,24 +13,14 @@ use Illuminate\Contracts\Support\Arrayable;
 final class WorkspaceDefinition implements Arrayable
 {
     /**
-     * @var array<int, PackageDefinition>
-     */
-    public const DEFAULT_EMPTY_PACKAGES = [];
-
-    /**
-     * @var array<string, mixed>|null
-     */
-    public const DEFAULT_HOOKS = null;
-
-    /**
      * @param  array<int, PackageDefinition>  $packages
      * @param  array<string, mixed>|null  $hooks
      */
     public function __construct(
         public readonly string $name,
         public readonly ?string $vendor = null,
-        public readonly array $packages = self::DEFAULT_EMPTY_PACKAGES,
-        public readonly ?array $hooks = self::DEFAULT_HOOKS,
+        public readonly array $packages = [],
+        public readonly ?array $hooks = null,
     ) {}
 
     /**
@@ -41,8 +31,8 @@ final class WorkspaceDefinition implements Arrayable
     public static function fromManifest(string $name, array $data): self
     {
         $vendor = isset($data['vendor']) && is_string($data['vendor']) ? $data['vendor'] : null;
-        $rawPackages = (array) ($data['packages'] ?? self::DEFAULT_EMPTY_PACKAGES);
-        $hooks = isset($data['hooks']) && is_array($data['hooks']) ? $data['hooks'] : self::DEFAULT_HOOKS;
+        $rawPackages = (array) ($data['packages'] ?? []);
+        $hooks = isset($data['hooks']) && is_array($data['hooks']) ? $data['hooks'] : null;
 
         $packages = [];
         foreach ($rawPackages as $rawPkg) {

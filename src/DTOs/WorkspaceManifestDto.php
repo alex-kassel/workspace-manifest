@@ -15,16 +15,6 @@ final class WorkspaceManifestDto implements ManifestDto
     public const DEFAULT_REPOSITORY_URL_TEMPLATE = 'git@github.com:{package}.git';
 
     /**
-     * @var array<string, WorkspaceDefinition>
-     */
-    public const DEFAULT_EMPTY_WORKSPACES = [];
-
-    /**
-     * @var array<string, mixed>
-     */
-    public const DEFAULT_EMPTY_EXTRA = [];
-
-    /**
      * @var array<int, string>
      */
     public const RESERVED_KEYS = ['$schema', 'default', 'repository_url_template', 'workspaces'];
@@ -37,8 +27,8 @@ final class WorkspaceManifestDto implements ManifestDto
         public readonly ?string $schema = null,
         public readonly ?string $default = null,
         public readonly string $repositoryUrlTemplate = self::DEFAULT_REPOSITORY_URL_TEMPLATE,
-        public readonly array $workspaces = self::DEFAULT_EMPTY_WORKSPACES,
-        public readonly array $extra = self::DEFAULT_EMPTY_EXTRA,
+        public readonly array $workspaces = [],
+        public readonly array $extra = [],
     ) {}
 
     /**
@@ -54,7 +44,7 @@ final class WorkspaceManifestDto implements ManifestDto
             ? $data['repository_url_template']
             : self::DEFAULT_REPOSITORY_URL_TEMPLATE;
 
-        $rawWorkspaces = (array) ($data['workspaces'] ?? self::DEFAULT_EMPTY_WORKSPACES);
+        $rawWorkspaces = (array) ($data['workspaces'] ?? []);
         $workspaces = [];
 
         foreach ($rawWorkspaces as $wsName => $wsConfig) {

@@ -13,13 +13,6 @@ use InvalidArgumentException;
 final class PackageDefinition implements Arrayable
 {
     /**
-     * @var array<string>
-     */
-    public const DEFAULT_EMPTY_SKILLS = [];
-
-    public const DEFAULT_EMPTY_STRING = '';
-
-    /**
      * @param  array<string>  $skills
      *
      * @throws InvalidArgumentException
@@ -29,7 +22,7 @@ final class PackageDefinition implements Arrayable
         public readonly string $workspace,
         public readonly ?string $alias = null,
         public readonly ?string $url = null,
-        public readonly array $skills = self::DEFAULT_EMPTY_SKILLS,
+        public readonly array $skills = [],
     ) {
         if (! str_contains($this->name, '/')) {
             throw new InvalidArgumentException(
@@ -62,7 +55,7 @@ final class PackageDefinition implements Arrayable
             );
         }
 
-        $rawName = isset($entry['name']) && is_string($entry['name']) ? strtolower(trim($entry['name'])) : self::DEFAULT_EMPTY_STRING;
+        $rawName = isset($entry['name']) && is_string($entry['name']) ? strtolower(trim($entry['name'])) : '';
         $canonicalName = (! str_contains($rawName, '/') && $cleanVendor !== null)
             ? "{$cleanVendor}/{$rawName}"
             : $rawName;
@@ -71,7 +64,7 @@ final class PackageDefinition implements Arrayable
         $url = isset($entry['url']) && is_string($entry['url']) ? trim($entry['url']) : null;
         $skills = isset($entry['skills']) && is_array($entry['skills'])
             ? array_values(array_filter($entry['skills'], 'is_string'))
-            : self::DEFAULT_EMPTY_SKILLS;
+            : [];
 
         return new self(
             name: $canonicalName,

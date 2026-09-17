@@ -10,7 +10,6 @@ use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
 use AlexKassel\WorkspaceManifest\Services\WorkspaceRunnerInstaller;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\ServiceProvider;
-use League\Flysystem\WhitespacePathNormalizer;
 
 class WorkspaceManifestServiceProvider extends ServiceProvider
 {
@@ -32,7 +31,7 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(WorkspaceManifest::class, function () {
-            return WorkspaceManifest::open(base_path($this->resolveRelativeFilename()));
+            return WorkspaceManifest::open();
         });
 
         $this->app->singleton(WorkspaceRunnerInstaller::class, function ($app) {
@@ -58,9 +57,14 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
             /** @var ManifestRegistry $registry */
             $registry = $this->app->make(ManifestRegistry::class);
 
+            $configuredPath = config(self::CONFIG_PATH_KEY);
+            $filename = is_string($configuredPath) && trim($configuredPath) !== ''
+                ? trim($configuredPath)
+                : WorkspaceManifest::DEFAULT_FILENAME;
+
             $registry->register(
                 name: self::REGISTRATION_NAME,
-                filename: $this->resolveRelativeFilename(),
+                filename: $filename,
                 schema: WorkspaceSchema::class,
                 description: self::REGISTRATION_DESCRIPTION,
                 metadata: [
@@ -68,21 +72,5 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
                 ],
             );
         }
-    }
-
-    protected function resolveRelativeFilename(): string
-    {
-        $configured = config(self::CONFIG_PATH_KEY);
-        $path = is_string($configured) && trim($configured) !== ''
-            ? trim($configured)
-            : WorkspaceManifest::DEFAULT_FILENAME;
-
-        $normalizer = new WhitespacePathNormalizer;
-        $cleanPath = $normalizer->normalizePath($path);
-        $cleanBase = $normalizer->normalizePath(base_path());
-
-        return str_starts_with($cleanPath, $cleanBase)
-            ? ltrim(substr($cleanPath, strlen($cleanBase)), '/')
-            : $cleanPath;
     }
 }

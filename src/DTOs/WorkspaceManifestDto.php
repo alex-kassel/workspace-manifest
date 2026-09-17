@@ -222,6 +222,34 @@ final class WorkspaceManifestDto implements ManifestDto
     }
 
     /**
+     * Return a copy of the DTO with an updated default workspace name.
+     */
+    public function withDefault(?string $default): static
+    {
+        return new self(
+            schema: $this->schema,
+            default: $default,
+            repositoryUrlTemplate: $this->repositoryUrlTemplate,
+            workspaces: $this->workspaces,
+            extra: $this->extra,
+        );
+    }
+
+    /**
+     * Return a copy of the DTO with an updated repository URL template.
+     */
+    public function withRepositoryUrlTemplate(string $template): static
+    {
+        return new self(
+            schema: $this->schema,
+            default: $this->default,
+            repositoryUrlTemplate: trim($template),
+            workspaces: $this->workspaces,
+            extra: $this->extra,
+        );
+    }
+
+    /**
      * Return a copy of the DTO with a workspace removed.
      */
     public function withoutWorkspace(string $workspaceName, bool $reassignDefault = true): static

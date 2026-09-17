@@ -227,6 +227,14 @@ class WorkspaceManifestDtoTest extends TestCase
         $this->assertFalse($dtoWithoutPkg->hasWorkspace('packages')); // Pruned!
         $this->assertNull($dtoWithoutPkg->default);
 
+        // withDefault
+        $dto = $dto->withDefault('custom-default');
+        $this->assertSame('custom-default', $dto->default);
+
+        // withRepositoryUrlTemplate
+        $dto = $dto->withRepositoryUrlTemplate('https://custom.repo/{package}.git');
+        $this->assertSame('https://custom.repo/{package}.git', $dto->repositoryUrlTemplate);
+
         // withoutWorkspace
         $dto2 = (new WorkspaceManifestDto)->withWorkspace('w1', asDefault: true)->withWorkspace('w2');
         $dto2 = $dto2->withoutWorkspace('w1', reassignDefault: true);

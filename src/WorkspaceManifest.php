@@ -12,8 +12,6 @@ use AlexKassel\WorkspaceManifest\Exceptions\InvalidWorkspacePathException;
 use AlexKassel\WorkspaceManifest\Exceptions\PackageConflictException;
 use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
 use Closure;
-use League\Flysystem\PathTraversalDetected;
-use League\Flysystem\WhitespacePathNormalizer;
 
 class WorkspaceManifest
 {
@@ -36,11 +34,13 @@ class WorkspaceManifest
     }
 
     /**
-     * Open a WorkspaceManifest instance for given path.
+     * Open a WorkspaceManifest instance for given path or configured default.
      */
-    public static function open(string $path = self::DEFAULT_FILENAME): self
+    public static function open(?string $path = null): self
     {
-        return new self($path);
+        $target = $path ?? config('workspace-manifest.path') ?? self::DEFAULT_FILENAME;
+
+        return new self($target);
     }
 
     /**
@@ -51,23 +51,34 @@ class WorkspaceManifest
      */
     public static function normalizeWorkspacePath(string $path): string
     {
-        $trimmed = trim($path);
+        $trimmed = trim(str_replace('\\', '/', $path));
 
-        if (str_starts_with($trimmed, '/') || str_starts_with($trimmed, '\\') || preg_match('/^[a-zA-Z]:[\\\\\/]/', $trimmed)) {
+        if ($trimmed === '' || str_starts_with($trimmed, '/') || preg_match('/^[a-zA-Z]:\//', $trimmed)) {
             throw new InvalidWorkspacePathException($path, 'Absolute paths are not allowed. Workspace must be a relative path.');
         }
 
-        try {
-            $normalized = (new WhitespacePathNormalizer)->normalizePath($trimmed);
-        } catch (PathTraversalDetected) {
-            throw new InvalidWorkspacePathException($path, 'Path traversal ("..") is not allowed.');
+        $parts = [];
+        foreach (explode('/', $trimmed) as $segment) {
+            $segment = trim($segment);
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+            if ($segment === '..') {
+                if (empty($parts)) {
+                    throw new InvalidWorkspacePathException($path, 'Path traversal ("..") is not allowed.');
+                }
+                array_pop($parts);
+
+                continue;
+            }
+            $parts[] = $segment;
         }
 
-        if ($normalized === '') {
+        if (empty($parts)) {
             throw new InvalidWorkspacePathException($path, 'Workspace path cannot be empty or root directory.');
         }
 
-        return $normalized;
+        return implode('/', $parts);
     }
 
     /**
@@ -76,6 +87,14 @@ class WorkspaceManifest
     public function manifest(): Manifest
     {
         return $this->manifest;
+    }
+
+    /**
+     * Get absolute path to the manifest file.
+     */
+    public function getPath(): string
+    {
+        return $this->manifest->path;
     }
 
     /**
@@ -155,7 +174,12 @@ class WorkspaceManifest
     public function setDefaultWorkspace(?string $workspace): self
     {
         $clean = $workspace !== null ? self::normalizeWorkspacePath($workspace) : null;
-        $this->manifest->set('default', $clean);
+
+        $this->mutate(function (array $data) use ($clean): array {
+            return WorkspaceManifestDto::fromArray($data)
+                ->withDefault($clean)
+                ->toArray();
+        });
 
         return $this;
     }
@@ -173,7 +197,13 @@ class WorkspaceManifest
      */
     public function setRepositoryUrlTemplate(string $template): self
     {
-        $this->manifest->set('repository_url_template', trim($template));
+        $cleanTemplate = trim($template);
+
+        $this->mutate(function (array $data) use ($cleanTemplate): array {
+            return WorkspaceManifestDto::fromArray($data)
+                ->withRepositoryUrlTemplate($cleanTemplate)
+                ->toArray();
+        });
 
         return $this;
     }

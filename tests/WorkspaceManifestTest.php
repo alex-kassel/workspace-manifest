@@ -373,4 +373,36 @@ class WorkspaceManifestTest extends TestCase
         $manifest->saveDto($dto5);
         $this->assertSame($dto5, $manifest->toDto());
     }
+
+    public function test_set_default_workspace_and_repository_url_template_persist_across_instances_and_mutations(): void
+    {
+        $manifest = WorkspaceManifest::open($this->manifestPath)->init();
+        $manifest->registerWorkspace('packages');
+        $manifest->registerWorkspace('modules');
+
+        // Set default and template
+        $manifest->setDefaultWorkspace('modules');
+        $manifest->setRepositoryUrlTemplate('https://gitlab.com/{package}.git');
+
+        $this->assertSame('modules', $manifest->getDefaultWorkspace());
+        $this->assertSame('https://gitlab.com/{package}.git', $manifest->getRepositoryUrlTemplate());
+        $this->assertSame('modules', $manifest->toDto()->default);
+        $this->assertSame('https://gitlab.com/{package}.git', $manifest->toDto()->repositoryUrlTemplate);
+
+        // Open in a completely fresh instance from disk
+        $freshManifest = WorkspaceManifest::open($this->manifestPath);
+        $this->assertSame('modules', $freshManifest->getDefaultWorkspace());
+        $this->assertSame('https://gitlab.com/{package}.git', $freshManifest->getRepositoryUrlTemplate());
+        $this->assertSame('modules', $freshManifest->toDto()->default);
+        $this->assertSame('https://gitlab.com/{package}.git', $freshManifest->toDto()->repositoryUrlTemplate);
+
+        // Perform another mutation (addPackage) and verify default/template are NOT wiped out
+        $freshManifest->addPackage('modules', 'billing');
+        $this->assertTrue($freshManifest->hasPackage('billing'));
+
+        $afterMutation = WorkspaceManifest::open($this->manifestPath);
+        $this->assertSame('modules', $afterMutation->getDefaultWorkspace());
+        $this->assertSame('https://gitlab.com/{package}.git', $afterMutation->getRepositoryUrlTemplate());
+        $this->assertTrue($afterMutation->hasPackage('billing'));
+    }
 }

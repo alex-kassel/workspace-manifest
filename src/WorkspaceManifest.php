@@ -541,14 +541,10 @@ class WorkspaceManifest
         }
 
         $pkg = $this->getPackage($packageName, $cleanWorkspace);
-        if ($pkg === null) {
-            throw new InvalidPackageNameException(
-                packageName: $packageName,
-                message: "Package [{$packageName}] is not registered in workspace [{$cleanWorkspace}].",
-            );
-        }
+        $url = $pkg?->url;
+        $skills = $pkg !== null ? $pkg->skills : [];
 
-        return $this->addPackage($cleanWorkspace, $pkg->name, $alias, $pkg->url, $pkg->skills);
+        return $this->addPackage($cleanWorkspace, $packageName, $alias, $url, $skills);
     }
 
     /**
@@ -571,14 +567,10 @@ class WorkspaceManifest
         }
 
         $pkg = $this->getPackage($packageName, $cleanWorkspace);
-        if ($pkg === null) {
-            throw new InvalidPackageNameException(
-                packageName: $packageName,
-                message: "Package [{$packageName}] is not registered in workspace [{$cleanWorkspace}].",
-            );
-        }
+        $alias = $pkg?->alias;
+        $url = $pkg?->url;
 
-        return $this->addPackage($cleanWorkspace, $pkg->name, $pkg->alias, $pkg->url, $skills);
+        return $this->addPackage($cleanWorkspace, $packageName, $alias, $url, $skills);
     }
 
     /**

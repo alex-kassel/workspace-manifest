@@ -6,7 +6,7 @@ namespace AlexKassel\WorkspaceManifest\Tests;
 
 use AlexKassel\WorkspaceManifest\WorkspaceManifestServiceProvider;
 use Illuminate\Foundation\Application;
-use Tests\TestCase as BaseTestCase;
+use Orchestra\Testbench\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {

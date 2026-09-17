@@ -1,5 +1,6 @@
 {
     "name": "alex-kassel/workspace-manifest",
+    "version": "0.0.1",
     "description": "Domain manifest repository and schema for multi-package workspace.json configurations",
     "keywords": [
         "laravel",
@@ -17,9 +18,6 @@
             "name": "Alex Kassel",
             "homepage": "https://github.com/alex-kassel"
         }
-    ],
-    "bin": [
-        "bin/workspace"
     ],
     "require": {
         "php": "^8.2|^8.3|^8.4",

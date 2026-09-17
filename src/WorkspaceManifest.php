@@ -293,6 +293,20 @@ class WorkspaceManifest
     }
 
     /**
+     * Get a workspace definition by name.
+     */
+    public function getWorkspace(string $workspace): ?WorkspaceDefinition
+    {
+        try {
+            $clean = self::normalizeWorkspacePath($workspace);
+        } catch (InvalidWorkspacePathException) {
+            return null;
+        }
+
+        return $this->toDto()->getWorkspace($clean);
+    }
+
+    /**
      * Determine if a workspace is registered.
      */
     public function hasWorkspace(string $workspace): bool
@@ -362,6 +376,17 @@ class WorkspaceManifest
         });
 
         return $this;
+    }
+
+    /**
+     * Remove a workspace from the manifest (alias of unregisterWorkspace).
+     *
+     * @throws InvalidWorkspacePathException
+     * @throws WorkspaceNotFoundException
+     */
+    public function removeWorkspace(string $workspace, bool $reassignDefault = true): self
+    {
+        return $this->unregisterWorkspace($workspace, $reassignDefault);
     }
 
     /**

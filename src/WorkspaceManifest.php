@@ -148,12 +148,12 @@ class WorkspaceManifest
     }
 
     /**
-     * Clear in-memory DTO cache and fresh reload underlying manifest.
+     * Clear in-memory DTO cache and invalidate underlying manifest.
      */
     public function clearCache(): self
     {
         $this->cachedDto = null;
-        $this->manifest->fresh();
+        $this->manifest->invalidate();
 
         return $this;
     }

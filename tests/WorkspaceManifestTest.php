@@ -7,8 +7,15 @@ namespace AlexKassel\WorkspaceManifest\Tests;
 use AlexKassel\WorkspaceManifest\DTOs\PackageDefinition;
 use AlexKassel\WorkspaceManifest\DTOs\WorkspaceDefinition;
 use AlexKassel\WorkspaceManifest\DTOs\WorkspaceManifestDto;
+use AlexKassel\WorkspaceManifest\Exceptions\DefaultWorkspaceNotConfiguredException;
+use AlexKassel\WorkspaceManifest\Exceptions\InvalidPackageAliasException;
+use AlexKassel\WorkspaceManifest\Exceptions\InvalidPackageNameException;
+use AlexKassel\WorkspaceManifest\Exceptions\InvalidRepositoryUrlTemplateException;
+use AlexKassel\WorkspaceManifest\Exceptions\InvalidVendorSlugException;
 use AlexKassel\WorkspaceManifest\Exceptions\InvalidWorkspacePathException;
 use AlexKassel\WorkspaceManifest\Exceptions\PackageConflictException;
+use AlexKassel\WorkspaceManifest\Exceptions\WorkspaceAlreadyExistsException;
+use AlexKassel\WorkspaceManifest\Exceptions\WorkspaceNotFoundException;
 use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
 use AlexKassel\WorkspaceManifest\WorkspaceManifest;
 use Illuminate\Support\Facades\File;
@@ -133,6 +140,7 @@ class WorkspaceManifestTest extends TestCase
     public function test_add_packages_string_and_structured(): void
     {
         $wm = WorkspaceManifest::open($this->manifestPath);
+        $wm->registerWorkspace('packages');
 
         $wm->addPackage('packages', 'vendor/pkg-simple');
         $this->assertTrue($wm->hasPackage('vendor/pkg-simple'));
@@ -174,26 +182,29 @@ class WorkspaceManifestTest extends TestCase
     public function test_conflict_prevention_rule_f03(): void
     {
         $wm = WorkspaceManifest::open($this->manifestPath);
-        $wm->addPackage('packages', 'acme/foo', alias: 'FooAlias');
+        $wm->registerWorkspace('packages', vendor: 'acme');
+        $wm->addPackage('packages', 'acme/foo', alias: 'bar');
 
         // Collision 1: New package name matches existing alias
         $this->expectException(PackageConflictException::class);
-        $wm->addPackage('packages', 'FooAlias');
+        $wm->addPackage('packages', 'acme/bar');
     }
 
     public function test_alias_conflict_with_existing_package_name(): void
     {
         $wm = WorkspaceManifest::open($this->manifestPath);
+        $wm->registerWorkspace('packages', vendor: 'acme');
         $wm->addPackage('packages', 'acme/foo');
 
         // Collision 2: New package alias matches existing package name
         $this->expectException(PackageConflictException::class);
-        $wm->addPackage('packages', 'acme/bar', alias: 'acme/foo');
+        $wm->addPackage('packages', 'acme/bar', alias: 'foo');
     }
 
     public function test_register_package_alias_and_skills_update(): void
     {
         $wm = WorkspaceManifest::open($this->manifestPath);
+        $wm->registerWorkspace('packages');
         $wm->addPackage('packages', 'acme/tool');
 
         $wm->registerPackageAlias('packages', 'acme/tool', 'ToolMaster');
@@ -211,6 +222,7 @@ class WorkspaceManifestTest extends TestCase
     public function test_remove_package_with_empty_workspace_prune(): void
     {
         $wm = WorkspaceManifest::open($this->manifestPath);
+        $wm->registerWorkspace('temp-ws');
 
         $wm->addPackage('temp-ws', 'vendor/temp-pkg');
         $this->assertTrue($wm->hasWorkspace('temp-ws'));
@@ -351,7 +363,7 @@ class WorkspaceManifestTest extends TestCase
     {
         $manifest = WorkspaceManifest::open($this->manifestPath)->init();
         $manifest->registerWorkspace('packages');
-        $manifest->registerWorkspace('modules');
+        $manifest->registerWorkspace('modules', vendor: 'acme');
 
         // Set default and template
         $manifest->setDefaultWorkspace('modules');
@@ -377,5 +389,134 @@ class WorkspaceManifestTest extends TestCase
         $this->assertSame('modules', $afterMutation->getDefaultWorkspace());
         $this->assertSame('https://gitlab.com/{package}.git', $afterMutation->getRepositoryUrlTemplate());
         $this->assertTrue($afterMutation->hasPackage('billing'));
+    }
+
+    public function test_register_workspace_already_exists_throws_exception(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+        $wm->registerWorkspace('packages');
+
+        $this->expectException(WorkspaceAlreadyExistsException::class);
+        $wm->registerWorkspace('packages');
+    }
+
+    public function test_register_workspace_invalid_vendor_throws_exception(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+
+        try {
+            $wm->registerWorkspace('packages', vendor: 'Bad Vendor!');
+            $this->fail('Expected InvalidVendorSlugException');
+        } catch (InvalidVendorSlugException $e) {
+            $this->assertSame('Bad Vendor!', $e->vendor);
+            $this->assertSame('bad-vendor', $e->suggestion);
+        }
+    }
+
+    public function test_unregister_workspace_not_found_throws_exception(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+
+        $this->expectException(WorkspaceNotFoundException::class);
+        $wm->unregisterWorkspace('non-existent');
+    }
+
+    public function test_add_package_to_non_existent_workspace_throws_exception(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+
+        $this->expectException(WorkspaceNotFoundException::class);
+        $wm->addPackage('non-existent', 'vendor/pkg');
+    }
+
+    public function test_add_package_invalid_name_throws_exception(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+        $wm->registerWorkspace('packages');
+
+        try {
+            $wm->addPackage('packages', 'Acme Corp/Bad Package');
+            $this->fail('Expected InvalidPackageNameException');
+        } catch (InvalidPackageNameException $e) {
+            $this->assertSame('Acme Corp/Bad Package', $e->packageName);
+            $this->assertSame('acme-corp/bad-package', $e->suggestion);
+        }
+    }
+
+    public function test_add_package_invalid_alias_throws_exception(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+        $wm->registerWorkspace('packages');
+
+        $this->expectException(InvalidPackageAliasException::class);
+        $wm->addPackage('packages', 'acme/foo', alias: 'sub/alias');
+    }
+
+    public function test_set_workspace_vendor_not_found_and_invalid(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+
+        try {
+            $wm->setWorkspaceVendor('packages', 'acme');
+            $this->fail('Expected WorkspaceNotFoundException');
+        } catch (WorkspaceNotFoundException) {
+            // expected
+        }
+
+        $wm->registerWorkspace('packages');
+
+        try {
+            $wm->setWorkspaceVendor('packages', 'Acme Corporation!');
+            $this->fail('Expected InvalidVendorSlugException');
+        } catch (InvalidVendorSlugException $e) {
+            $this->assertSame('acme-corporation', $e->suggestion);
+        }
+    }
+
+    public function test_set_repository_url_template_invalid_throws_exception(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+
+        $this->expectException(InvalidRepositoryUrlTemplateException::class);
+        $wm->setRepositoryUrlTemplate('https://github.com/missing-placeholder');
+    }
+
+    public function test_get_required_default_workspace(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath)->init();
+
+        try {
+            $wm->getRequiredDefaultWorkspace();
+            $this->fail('Expected DefaultWorkspaceNotConfiguredException');
+        } catch (DefaultWorkspaceNotConfiguredException) {
+            // expected
+        }
+
+        $wm->registerWorkspace('packages', asDefault: true);
+        $this->assertSame('packages', $wm->getRequiredDefaultWorkspace());
+    }
+
+    public function test_workspace_hooks(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath)->init();
+        $wm->registerWorkspace('packages');
+
+        $this->assertSame([], $wm->getWorkspaceHooks('packages'));
+
+        $wm->setWorkspaceHook('packages', 'post_install', 'composer test');
+        $this->assertSame(['post_install' => 'composer test'], $wm->getWorkspaceHooks('packages'));
+
+        // Persistence test
+        $fresh = WorkspaceManifest::open($this->manifestPath);
+        $this->assertSame(['post_install' => 'composer test'], $fresh->getWorkspaceHooks('packages'));
+        $this->assertSame(['post_install' => 'composer test'], $fresh->toDto()->getWorkspace('packages')?->hooks);
+
+        // Remove hook
+        $fresh->removeWorkspaceHook('packages', 'post_install');
+        $this->assertSame([], $fresh->getWorkspaceHooks('packages'));
+
+        // Calling on non-existent workspace throws WorkspaceNotFoundException
+        $this->expectException(WorkspaceNotFoundException::class);
+        $fresh->getWorkspaceHooks('non-existent');
     }
 }

@@ -6,7 +6,7 @@ namespace AlexKassel\WorkspaceManifest\Exceptions;
 
 use InvalidArgumentException;
 
-class InvalidWorkspacePathException extends InvalidArgumentException
+class InvalidWorkspacePathException extends InvalidArgumentException implements WorkspaceManifestException
 {
     public function __construct(
         public readonly string $workspacePath,

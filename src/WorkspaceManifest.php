@@ -8,10 +8,19 @@ use AlexKassel\ManifestEngine\Manifest;
 use AlexKassel\WorkspaceManifest\DTOs\PackageDefinition;
 use AlexKassel\WorkspaceManifest\DTOs\WorkspaceDefinition;
 use AlexKassel\WorkspaceManifest\DTOs\WorkspaceManifestDto;
+use AlexKassel\WorkspaceManifest\Exceptions\DefaultWorkspaceNotConfiguredException;
+use AlexKassel\WorkspaceManifest\Exceptions\InvalidPackageAliasException;
+use AlexKassel\WorkspaceManifest\Exceptions\InvalidPackageNameException;
+use AlexKassel\WorkspaceManifest\Exceptions\InvalidRepositoryUrlTemplateException;
+use AlexKassel\WorkspaceManifest\Exceptions\InvalidVendorSlugException;
 use AlexKassel\WorkspaceManifest\Exceptions\InvalidWorkspacePathException;
 use AlexKassel\WorkspaceManifest\Exceptions\PackageConflictException;
+use AlexKassel\WorkspaceManifest\Exceptions\WorkspaceAlreadyExistsException;
+use AlexKassel\WorkspaceManifest\Exceptions\WorkspaceNotFoundException;
 use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
+use AlexKassel\WorkspaceManifest\Validation\WorkspaceValidator;
 use Closure;
+use InvalidArgumentException;
 
 class WorkspaceManifest
 {
@@ -169,6 +178,21 @@ class WorkspaceManifest
     }
 
     /**
+     * Get default workspace name or throw if not configured.
+     *
+     * @throws DefaultWorkspaceNotConfiguredException
+     */
+    public function getRequiredDefaultWorkspace(): string
+    {
+        $default = $this->getDefaultWorkspace();
+        if ($default === null) {
+            throw new DefaultWorkspaceNotConfiguredException;
+        }
+
+        return $default;
+    }
+
+    /**
      * Set default workspace name.
      */
     public function setDefaultWorkspace(?string $workspace): self
@@ -194,10 +218,17 @@ class WorkspaceManifest
 
     /**
      * Set repository URL template.
+     *
+     * @throws InvalidRepositoryUrlTemplateException
      */
     public function setRepositoryUrlTemplate(string $template): self
     {
-        $cleanTemplate = trim($template);
+        $result = WorkspaceValidator::validateRepositoryUrlTemplate($template);
+        if ($result->isInvalid()) {
+            throw new InvalidRepositoryUrlTemplateException($template, $result->errorMessage());
+        }
+
+        $cleanTemplate = $result->normalized() ?? trim($template);
 
         $this->mutate(function (array $data) use ($cleanTemplate): array {
             return WorkspaceManifestDto::fromArray($data)
@@ -255,14 +286,33 @@ class WorkspaceManifest
 
     /**
      * Register a new workspace.
+     *
+     * @throws InvalidWorkspacePathException
+     * @throws InvalidVendorSlugException
+     * @throws WorkspaceAlreadyExistsException
      */
     public function registerWorkspace(string $workspace, ?string $vendor = null, bool $asDefault = false): self
     {
         $cleanWorkspace = self::normalizeWorkspacePath($workspace);
 
-        $this->mutate(function (array $data) use ($cleanWorkspace, $vendor, $asDefault): array {
+        $vendorResult = WorkspaceValidator::validateVendorSlug($vendor, true);
+        if ($vendorResult->isInvalid()) {
+            throw new InvalidVendorSlugException(
+                vendor: $vendor ?? '',
+                suggestion: $vendorResult->suggestion(),
+                message: $vendorResult->errorMessage(),
+            );
+        }
+
+        if ($this->hasWorkspace($cleanWorkspace)) {
+            throw new WorkspaceAlreadyExistsException($cleanWorkspace);
+        }
+
+        $cleanVendor = $vendorResult->normalized();
+
+        $this->mutate(function (array $data) use ($cleanWorkspace, $cleanVendor, $asDefault): array {
             return WorkspaceManifestDto::fromArray($data)
-                ->withWorkspace($cleanWorkspace, $vendor, $asDefault)
+                ->withWorkspace($cleanWorkspace, $cleanVendor, $asDefault)
                 ->toArray();
         });
 
@@ -271,10 +321,17 @@ class WorkspaceManifest
 
     /**
      * Unregister a workspace.
+     *
+     * @throws InvalidWorkspacePathException
+     * @throws WorkspaceNotFoundException
      */
     public function unregisterWorkspace(string $workspace, bool $reassignDefault = true): self
     {
         $cleanWorkspace = self::normalizeWorkspacePath($workspace);
+
+        if (! $this->hasWorkspace($cleanWorkspace)) {
+            throw new WorkspaceNotFoundException($cleanWorkspace);
+        }
 
         $this->mutate(function (array $data) use ($cleanWorkspace, $reassignDefault): array {
             return WorkspaceManifestDto::fromArray($data)
@@ -287,6 +344,8 @@ class WorkspaceManifest
 
     /**
      * Get vendor prefix configured for a workspace.
+     *
+     * @throws InvalidWorkspacePathException
      */
     public function getWorkspaceVendor(string $workspace): ?string
     {
@@ -297,14 +356,33 @@ class WorkspaceManifest
 
     /**
      * Set or clear vendor prefix configured for a workspace.
+     *
+     * @throws InvalidWorkspacePathException
+     * @throws WorkspaceNotFoundException
+     * @throws InvalidVendorSlugException
      */
     public function setWorkspaceVendor(string $workspace, ?string $vendor): self
     {
         $cleanWorkspace = self::normalizeWorkspacePath($workspace);
 
-        $this->mutate(function (array $data) use ($cleanWorkspace, $vendor): array {
+        if (! $this->hasWorkspace($cleanWorkspace)) {
+            throw new WorkspaceNotFoundException($cleanWorkspace);
+        }
+
+        $vendorResult = WorkspaceValidator::validateVendorSlug($vendor, true);
+        if ($vendorResult->isInvalid()) {
+            throw new InvalidVendorSlugException(
+                vendor: $vendor ?? '',
+                suggestion: $vendorResult->suggestion(),
+                message: $vendorResult->errorMessage(),
+            );
+        }
+
+        $cleanVendor = $vendorResult->normalized();
+
+        $this->mutate(function (array $data) use ($cleanWorkspace, $cleanVendor): array {
             return WorkspaceManifestDto::fromArray($data)
-                ->withWorkspaceVendor($cleanWorkspace, $vendor)
+                ->withWorkspaceVendor($cleanWorkspace, $cleanVendor)
                 ->toArray();
         });
 
@@ -387,6 +465,10 @@ class WorkspaceManifest
      *
      * @param  array<string>  $skills
      *
+     * @throws InvalidWorkspacePathException
+     * @throws WorkspaceNotFoundException
+     * @throws InvalidPackageNameException
+     * @throws InvalidPackageAliasException
      * @throws PackageConflictException
      */
     public function addPackage(
@@ -397,11 +479,38 @@ class WorkspaceManifest
         array $skills = []
     ): self {
         $cleanWorkspace = self::normalizeWorkspacePath($workspace);
+
+        if (! $this->hasWorkspace($cleanWorkspace)) {
+            throw new WorkspaceNotFoundException($cleanWorkspace);
+        }
+
+        $wsVendor = $this->getWorkspaceVendor($cleanWorkspace);
+        $pkgResult = WorkspaceValidator::validatePackageName($packageName, $wsVendor);
+        if ($pkgResult->isInvalid()) {
+            throw new InvalidPackageNameException(
+                packageName: $packageName,
+                suggestion: $pkgResult->suggestion(),
+                message: $pkgResult->errorMessage(),
+            );
+        }
+
+        $cleanAlias = null;
+        if ($alias !== null && trim($alias) !== '') {
+            $aliasResult = WorkspaceValidator::validatePackageAlias($alias);
+            if ($aliasResult->isInvalid()) {
+                throw new InvalidPackageAliasException($alias, $aliasResult->errorMessage());
+            }
+            $cleanAlias = $aliasResult->normalized();
+        }
+
+        $cleanUrl = $url !== null && trim($url) !== '' ? trim($url) : null;
+        $storedName = $pkgResult->storedName ?? strtolower(trim($packageName));
+
         $package = new PackageDefinition(
-            name: strtolower(trim($packageName)),
+            name: $storedName,
             workspace: $cleanWorkspace,
-            alias: $alias !== null && trim($alias) !== '' ? trim($alias) : null,
-            url: $url !== null && trim($url) !== '' ? trim($url) : null,
+            alias: $cleanAlias,
+            url: $cleanUrl,
             skills: $skills,
         );
 
@@ -416,28 +525,135 @@ class WorkspaceManifest
 
     /**
      * Register or update package alias in a workspace.
+     *
+     * @throws InvalidWorkspacePathException
+     * @throws WorkspaceNotFoundException
+     * @throws InvalidPackageNameException
+     * @throws InvalidPackageAliasException
+     * @throws PackageConflictException
      */
     public function registerPackageAlias(string $workspace, string $packageName, string $alias): self
     {
-        $pkg = $this->getPackage($packageName, $workspace);
-        $url = $pkg?->url;
-        $skills = $pkg !== null ? $pkg->skills : [];
+        $cleanWorkspace = self::normalizeWorkspacePath($workspace);
 
-        return $this->addPackage($workspace, $packageName, $alias, $url, $skills);
+        if (! $this->hasWorkspace($cleanWorkspace)) {
+            throw new WorkspaceNotFoundException($cleanWorkspace);
+        }
+
+        $pkg = $this->getPackage($packageName, $cleanWorkspace);
+        if ($pkg === null) {
+            throw new InvalidPackageNameException(
+                packageName: $packageName,
+                message: "Package [{$packageName}] is not registered in workspace [{$cleanWorkspace}].",
+            );
+        }
+
+        return $this->addPackage($cleanWorkspace, $pkg->name, $alias, $pkg->url, $pkg->skills);
     }
 
     /**
      * Update active skills for a package in workspace.json.
      *
      * @param  array<string>  $skills
+     *
+     * @throws InvalidWorkspacePathException
+     * @throws WorkspaceNotFoundException
+     * @throws InvalidPackageNameException
+     * @throws InvalidPackageAliasException
+     * @throws PackageConflictException
      */
     public function updatePackageSkills(string $workspace, string $packageName, array $skills): self
     {
-        $pkg = $this->getPackage($packageName, $workspace);
-        $alias = $pkg?->alias;
-        $url = $pkg?->url;
+        $cleanWorkspace = self::normalizeWorkspacePath($workspace);
 
-        return $this->addPackage($workspace, $packageName, $alias, $url, $skills);
+        if (! $this->hasWorkspace($cleanWorkspace)) {
+            throw new WorkspaceNotFoundException($cleanWorkspace);
+        }
+
+        $pkg = $this->getPackage($packageName, $cleanWorkspace);
+        if ($pkg === null) {
+            throw new InvalidPackageNameException(
+                packageName: $packageName,
+                message: "Package [{$packageName}] is not registered in workspace [{$cleanWorkspace}].",
+            );
+        }
+
+        return $this->addPackage($cleanWorkspace, $pkg->name, $pkg->alias, $pkg->url, $skills);
+    }
+
+    /**
+     * Get lifecycle hooks configured for a workspace.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws InvalidWorkspacePathException
+     * @throws WorkspaceNotFoundException
+     */
+    public function getWorkspaceHooks(string $workspace): array
+    {
+        $cleanWorkspace = self::normalizeWorkspacePath($workspace);
+
+        $ws = $this->toDto()->getWorkspace($cleanWorkspace);
+        if ($ws === null) {
+            throw new WorkspaceNotFoundException($cleanWorkspace);
+        }
+
+        return $ws->hooks ?? [];
+    }
+
+    /**
+     * Set or update a lifecycle hook for a workspace.
+     *
+     * @param  string|array<int, string>  $command
+     *
+     * @throws InvalidWorkspacePathException
+     * @throws WorkspaceNotFoundException
+     */
+    public function setWorkspaceHook(string $workspace, string $hook, string|array $command): self
+    {
+        $cleanWorkspace = self::normalizeWorkspacePath($workspace);
+
+        if (! $this->hasWorkspace($cleanWorkspace)) {
+            throw new WorkspaceNotFoundException($cleanWorkspace);
+        }
+
+        $cleanHook = trim($hook);
+        if ($cleanHook === '') {
+            throw new InvalidArgumentException('Hook name cannot be empty.');
+        }
+
+        $this->mutate(function (array $data) use ($cleanWorkspace, $cleanHook, $command): array {
+            return WorkspaceManifestDto::fromArray($data)
+                ->withWorkspaceHook($cleanWorkspace, $cleanHook, $command)
+                ->toArray();
+        });
+
+        return $this;
+    }
+
+    /**
+     * Remove a lifecycle hook from a workspace.
+     *
+     * @throws InvalidWorkspacePathException
+     * @throws WorkspaceNotFoundException
+     */
+    public function removeWorkspaceHook(string $workspace, string $hook): self
+    {
+        $cleanWorkspace = self::normalizeWorkspacePath($workspace);
+
+        if (! $this->hasWorkspace($cleanWorkspace)) {
+            throw new WorkspaceNotFoundException($cleanWorkspace);
+        }
+
+        $cleanHook = trim($hook);
+
+        $this->mutate(function (array $data) use ($cleanWorkspace, $cleanHook): array {
+            return WorkspaceManifestDto::fromArray($data)
+                ->withoutWorkspaceHook($cleanWorkspace, $cleanHook)
+                ->toArray();
+        });
+
+        return $this;
     }
 
     /**

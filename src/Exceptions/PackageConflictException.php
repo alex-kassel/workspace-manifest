@@ -6,7 +6,7 @@ namespace AlexKassel\WorkspaceManifest\Exceptions;
 
 use RuntimeException;
 
-class PackageConflictException extends RuntimeException
+class PackageConflictException extends RuntimeException implements WorkspaceManifestException
 {
     public function __construct(
         public readonly string $conflictingName,

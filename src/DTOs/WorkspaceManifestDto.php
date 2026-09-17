@@ -361,4 +361,48 @@ final class WorkspaceManifestDto implements ManifestDto
 
         return [$newDto, true];
     }
+
+    /**
+     * Return a copy of the DTO with an added or updated workspace lifecycle hook.
+     *
+     * @param  string|array<int, string>  $command
+     */
+    public function withWorkspaceHook(string $workspace, string $hook, string|array $command): static
+    {
+        if (! isset($this->workspaces[$workspace])) {
+            return $this;
+        }
+
+        $workspaces = $this->workspaces;
+        $workspaces[$workspace] = $workspaces[$workspace]->withHook($hook, $command);
+
+        return new self(
+            schema: $this->schema,
+            default: $this->default,
+            repositoryUrlTemplate: $this->repositoryUrlTemplate,
+            workspaces: $workspaces,
+            extra: $this->extra,
+        );
+    }
+
+    /**
+     * Return a copy of the DTO with a workspace lifecycle hook removed.
+     */
+    public function withoutWorkspaceHook(string $workspace, string $hook): static
+    {
+        if (! isset($this->workspaces[$workspace])) {
+            return $this;
+        }
+
+        $workspaces = $this->workspaces;
+        $workspaces[$workspace] = $workspaces[$workspace]->withoutHook($hook);
+
+        return new self(
+            schema: $this->schema,
+            default: $this->default,
+            repositoryUrlTemplate: $this->repositoryUrlTemplate,
+            workspaces: $workspaces,
+            extra: $this->extra,
+        );
+    }
 }

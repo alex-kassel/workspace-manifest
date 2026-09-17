@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest saveDto(\AlexKassel\WorkspaceManifest\DTOs\WorkspaceManifestDto $dto)
  * @method static string normalizeWorkspacePath(string $path)
  * @method static ?string getDefaultWorkspace()
+ * @method static string getRequiredDefaultWorkspace()
  * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest setDefaultWorkspace(?string $workspace)
  * @method static string getRepositoryUrlTemplate()
  * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest setRepositoryUrlTemplate(string $template)
@@ -32,6 +33,9 @@ use Illuminate\Support\Facades\Facade;
  * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest addPackage(string $workspace, string $packageName, ?string $alias = null, ?string $url = null, array<string> $skills = [])
  * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest registerPackageAlias(string $workspace, string $packageName, string $alias)
  * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest updatePackageSkills(string $workspace, string $packageName, array<string> $skills)
+ * @method static array<string, mixed> getWorkspaceHooks(string $workspace)
+ * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest setWorkspaceHook(string $workspace, string $hook, string|array<int, string> $command)
+ * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest removeWorkspaceHook(string $workspace, string $hook)
  * @method static bool removePackage(string $packageName, ?string $workspace = null, bool $pruneEmptyWorkspace = false)
  *
  * @see \AlexKassel\WorkspaceManifest\WorkspaceManifest

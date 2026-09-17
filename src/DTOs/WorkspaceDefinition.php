@@ -242,6 +242,44 @@ final class WorkspaceDefinition
     }
 
     /**
+     * Return a new instance with an added or updated lifecycle hook.
+     *
+     * @param  string|array<int, string>  $command
+     */
+    public function withHook(string $hook, string|array $command): self
+    {
+        $hooks = $this->hooks ?? [];
+        $hooks[$hook] = $command;
+
+        return new self(
+            name: $this->name,
+            vendor: $this->vendor,
+            packages: $this->packages,
+            hooks: $hooks,
+        );
+    }
+
+    /**
+     * Return a new instance with a lifecycle hook removed.
+     */
+    public function withoutHook(string $hook): self
+    {
+        if ($this->hooks === null || ! array_key_exists($hook, $this->hooks)) {
+            return $this;
+        }
+
+        $hooks = $this->hooks;
+        unset($hooks[$hook]);
+
+        return new self(
+            name: $this->name,
+            vendor: $this->vendor,
+            packages: $this->packages,
+            hooks: empty($hooks) ? null : $hooks,
+        );
+    }
+
+    /**
      * Convert to raw manifest workspace structure.
      *
      * @return array{vendor: ?string, packages: array<int, string|array<string, mixed>>, hooks?: array<string, mixed>}

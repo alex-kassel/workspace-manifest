@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace AlexKassel\WorkspaceManifest;
 
 use AlexKassel\ManifestEngine\ManifestRegistry;
-use AlexKassel\WorkspaceManifest\Console\Commands\WorkspaceInstallCommand;
 use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
-use AlexKassel\WorkspaceManifest\Services\WorkspaceRunnerInstaller;
-use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\ServiceProvider;
 
 class WorkspaceManifestServiceProvider extends ServiceProvider
@@ -21,8 +18,6 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
 
     public const REGISTRATION_DESCRIPTION = 'Multi-package workspace monorepo configuration';
 
-    public const METADATA_RUNNER_PATH_KEY = 'runnerPath';
-
     public function register(): void
     {
         $this->mergeConfigFrom(
@@ -33,12 +28,6 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
         $this->app->singleton(WorkspaceManifest::class, function () {
             return WorkspaceManifest::open();
         });
-
-        $this->app->singleton(WorkspaceRunnerInstaller::class, function ($app) {
-            return new WorkspaceRunnerInstaller(
-                files: $app->make(Filesystem::class),
-            );
-        });
     }
 
     public function boot(): void
@@ -47,10 +36,6 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../config/workspace-manifest.php' => config_path('workspace-manifest.php'),
             ], 'workspace-manifest-config');
-
-            $this->commands([
-                WorkspaceInstallCommand::class,
-            ]);
         }
 
         if ($this->app->bound(ManifestRegistry::class)) {
@@ -67,9 +52,6 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
                 filename: $filename,
                 schema: WorkspaceSchema::class,
                 description: self::REGISTRATION_DESCRIPTION,
-                metadata: [
-                    self::METADATA_RUNNER_PATH_KEY => __DIR__.'/../stubs/workspace.stub',
-                ],
             );
         }
     }

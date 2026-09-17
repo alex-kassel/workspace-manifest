@@ -432,9 +432,10 @@ If redesigned cleanly from first principles:
 
 ### Phase 3: Package Boundaries, Dependency Cleanup & Standards Compliance (P1 / P2 / P3)
 
-- [ ] **Step 3.1: Extract runner infrastructure to `workspace-development-toolkit` [P1]**
+- [x] **Step 3.1: Extract runner infrastructure to `workspace-development-toolkit` [P1]**
   - **Problem:** `stubs/workspace.stub`, `WorkspaceRunnerInstaller`, and `WorkspaceInstallCommand` violate SRP and drag in `alex-kassel/stub-engine`.
   - **Solution:** Move runner files and commands to `workspace-development-toolkit`. Remove `"alex-kassel/stub-engine"` from `composer.json`. Remove registrations from `WorkspaceManifestServiceProvider`.
+  - **Outcome:** Successfully transferred parameterized runner stub and token rendering (`StubEngine`) into `workspace-development-toolkit` (`PublishWorkspaceRunnerAction`). Removed runner installer, console command, stub, and tests from `workspace-manifest`. Removed `alex-kassel/stub-engine` dependency from `workspace-manifest/composer.json`. All test suites pass.
 
 - [ ] **Step 3.2: Delete dead code in DTOs [P2]**
   - **Problem:** `WorkspaceDefinition::toArray()` and `PackageDefinition::toArray()` are unused in production.

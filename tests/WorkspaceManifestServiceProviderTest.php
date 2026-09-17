@@ -6,7 +6,6 @@ namespace AlexKassel\WorkspaceManifest\Tests;
 
 use AlexKassel\ManifestEngine\ManifestRegistry;
 use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
-use AlexKassel\WorkspaceManifest\Services\WorkspaceRunnerInstaller;
 use AlexKassel\WorkspaceManifest\WorkspaceManifest;
 use AlexKassel\WorkspaceManifest\WorkspaceManifestServiceProvider;
 use Illuminate\Foundation\Application;
@@ -19,7 +18,6 @@ class WorkspaceManifestServiceProviderTest extends TestCase
         $this->assertInstanceOf(Application::class, $app);
 
         $this->assertTrue($app->bound(WorkspaceManifest::class));
-        $this->assertTrue($app->bound(WorkspaceRunnerInstaller::class));
 
         $instance = $app->make(WorkspaceManifest::class);
         $this->assertInstanceOf(WorkspaceManifest::class, $instance);
@@ -27,9 +25,6 @@ class WorkspaceManifestServiceProviderTest extends TestCase
             base_path(WorkspaceManifest::DEFAULT_FILENAME),
             $instance->getPath()
         );
-
-        $installer = $app->make(WorkspaceRunnerInstaller::class);
-        $this->assertInstanceOf(WorkspaceRunnerInstaller::class, $installer);
     }
 
     public function test_it_registers_in_manifest_registry_when_registry_is_bound(): void

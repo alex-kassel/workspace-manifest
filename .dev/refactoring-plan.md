@@ -418,13 +418,15 @@ If redesigned cleanly from first principles:
 - [x] **Step 2.2: Strict Schema Enforcement (Dropped YAGNI `$extra`) [P2]**
   - **Decision:** Explicitly dropped arbitrary `$extra` property bag. `workspace.json` is strictly machine-generated and machine-maintained by the package and CLI commands; arbitrary user-injected properties are neither supported nor required. Package schema remains strictly focused on `name`, `alias`, `url`, and `skills`.
 
-- [ ] **Step 2.3: Optimize mutation and eliminate redundant I/O in `removePackage()` [P2]**
+- [x] **Step 2.3: Optimize mutation and eliminate redundant I/O in `removePackage()` [P2]**
   - **Problem:** Target workspace resolved outside lock; non-existent packages trigger full file re-saves.
   - **Solution:** Move workspace resolution inside `mutate()`; return original `$data` array unmodified when `$wasRemoved === false`.
+  - **Outcome:** Target workspace is resolved within the lock callback; non-removals return `$data` immediately without saving or firing events.
 
-- [ ] **Step 2.4: Eliminate dual-state dot-notation risks in `WorkspaceManifest` [P2]**
+- [x] **Step 2.4: Eliminate dual-state dot-notation risks in `WorkspaceManifest` [P2]**
   - **Problem:** `hasWorkspace()` and `getWorkspaceVendor()` use dot-notation which fails if workspace paths contain periods.
   - **Solution:** Direct lookup on workspace key via `$this->toDto()->hasWorkspace($clean)` or associative array key check.
+  - **Outcome:** Unified reading methods through `$this->toDto()`; eliminated all dot-notation parsing hazards on dotted workspace paths.
 
 ---
 

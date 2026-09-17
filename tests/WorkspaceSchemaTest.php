@@ -13,7 +13,7 @@ class WorkspaceSchemaTest extends TestCase
         $schema = new WorkspaceSchema;
         $jsonSchema = $schema->jsonSchema();
 
-        $this->assertNotNull($jsonSchema);
+        $this->assertNotEmpty($jsonSchema);
         $this->assertSame('http://json-schema.org/draft-07/schema#', $jsonSchema['$schema']);
         $this->assertSame('WorkspaceManifest', $jsonSchema['title']);
         $this->assertSame('object', $jsonSchema['type']);
@@ -33,9 +33,9 @@ class WorkspaceSchemaTest extends TestCase
         $this->assertContains('packages', $additionalProps['required']);
 
         $packageItems = $additionalProps['properties']['packages']['items'];
-        $this->assertArrayHasKey('oneOf', $packageItems);
-        $this->assertCount(2, $packageItems['oneOf']);
-        $this->assertSame('string', $packageItems['oneOf'][0]['type']);
-        $this->assertSame('object', $packageItems['oneOf'][1]['type']);
+        $this->assertArrayHasKey('anyOf', $packageItems);
+        $this->assertCount(2, $packageItems['anyOf']);
+        $this->assertSame('string', $packageItems['anyOf'][0]['type']);
+        $this->assertSame('object', $packageItems['anyOf'][1]['type']);
     }
 }

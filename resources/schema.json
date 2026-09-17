@@ -1,7 +1,7 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "WorkspaceManifest",
-    "type": "object",
+    "description": "Multi-package workspace configuration for Laravel and PHP ecosystems.",
     "properties": {
         "$schema": {
             "description": "Path or URL to the JSON Schema specification.",
@@ -19,10 +19,9 @@
             "type": "string"
         },
         "workspaces": {
-            "description": "Map of registered workspace directories and their configurations.",
             "type": "object",
+            "description": "Map of registered workspace directories and their configurations.",
             "additionalProperties": {
-                "type": "object",
                 "properties": {
                     "vendor": {
                         "description": "Optional vendor namespace prefix for flat workspaces.",
@@ -33,60 +32,63 @@
                     },
                     "packages": {
                         "description": "List of registered packages in this workspace.",
-                        "type": "array",
                         "items": {
-                            "oneOf": [
+                            "anyOf": [
                                 {
-                                    "type": "string",
-                                    "description": "Package name in vendor/package format (e.g. \"acme/billing\")."
+                                    "description": "Package name in vendor/package format (e.g. \"acme/billing\").",
+                                    "type": "string"
                                 },
                                 {
-                                    "type": "object",
                                     "description": "Structured package descriptor with metadata.",
                                     "properties": {
                                         "name": {
-                                            "type": "string",
-                                            "description": "Package name in vendor/package format."
+                                            "description": "Package name in vendor/package format.",
+                                            "type": "string"
                                         },
                                         "alias": {
-                                            "type": "string",
-                                            "description": "Directory alias for flat workspaces (e.g. \"Billing\")."
+                                            "description": "Directory alias for flat workspaces (e.g. \"Billing\").",
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
                                         },
                                         "url": {
-                                            "type": "string",
-                                            "description": "Custom Git repository remote URL."
+                                            "description": "Custom Git repository remote URL.",
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
                                         },
                                         "skills": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string"
-                                            },
-                                            "description": "Agent skills assigned to this package."
+                                            "description": "Agent skills assigned to this package.",
+                                            "type": "array"
                                         }
                                     },
+                                    "type": "object",
                                     "required": [
                                         "name"
-                                    ],
-                                    "additionalProperties": true
+                                    ]
                                 }
                             ]
-                        }
+                        },
+                        "type": "array"
                     },
                     "hooks": {
                         "description": "Lifecycle workspace hooks and triggers.",
                         "type": "object"
                     }
                 },
-                "additionalProperties": true,
+                "type": "object",
                 "required": [
                     "packages"
-                ]
+                ],
+                "additionalProperties": true
             }
         }
     },
+    "type": "object",
     "required": [
         "workspaces"
     ],
-    "additionalProperties": true,
-    "description": "Multi-package workspace configuration for Laravel and PHP ecosystems."
+    "additionalProperties": true
 }

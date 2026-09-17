@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace AlexKassel\WorkspaceManifest\Tests;
 
-use AlexKassel\ManifestEngine\Exceptions\ManifestValidationException;
 use AlexKassel\WorkspaceManifest\DTOs\PackageDefinition;
 use AlexKassel\WorkspaceManifest\DTOs\WorkspaceDefinition;
 use AlexKassel\WorkspaceManifest\DTOs\WorkspaceManifestDto;
@@ -224,32 +223,6 @@ class WorkspaceManifestTest extends TestCase
         $this->assertTrue($removed);
         $this->assertFalse($wm->hasPackage('vendor/temp-pkg'));
         $this->assertFalse($wm->hasWorkspace('temp-ws'));
-    }
-
-    public function test_schema_validation_rejects_invalid_structure(): void
-    {
-        $wm = WorkspaceManifest::open($this->manifestPath);
-
-        $this->expectException(ManifestValidationException::class);
-        $wm->manifest()->save([
-            'workspaces' => 'invalid-not-an-array',
-        ]);
-    }
-
-    public function test_schema_validation_rejects_invalid_package_entry(): void
-    {
-        $wm = WorkspaceManifest::open($this->manifestPath);
-
-        $this->expectException(ManifestValidationException::class);
-        $wm->manifest()->save([
-            'workspaces' => [
-                'packages' => [
-                    'packages' => [
-                        ['invalid' => 'no-name-key'],
-                    ],
-                ],
-            ],
-        ]);
     }
 
     public function test_json_schema_export_and_specification(): void

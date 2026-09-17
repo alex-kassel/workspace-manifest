@@ -12,9 +12,8 @@ A clean, strongly-typed domain manifest model, repository, and schema validator 
 
 - 🔒 **Atomic & Process-Safe**: Advisory file locks (`flock(LOCK_EX)`) and atomic temp-file-to-target replacement eliminate race conditions during concurrent CLI executions.
 - 📐 **Strict Schema Validation**: Validates `workspace.json` structure via `WorkspaceSchema` with Draft-07 JSON Schema export for IDE autocomplete.
-- 📦 **Strongly-Typed DTOs**: Inspect packages through `PackageDefinition` and workspaces through `WorkspaceDefinition` with helpers for canonical vendor names, directory paths, and aliases.
-- 🛡️ **Path Normalization & Conflict Prevention**: Prevents path-traversal attacks (`..`) and strictly blocks alias-name collisions across registered packages (Rule F-03).
-- ⚡ **Standalone Zero-Dependency Runner**: Scaffold an executable `./workspace` CLI tool via `artisan workspace-manifest:install` to restore/clone missing packages on a clean machine before running `composer install`.
+- 📦 **Strongly-Typed Canonical DTOs**: `PackageDefinition`, `WorkspaceDefinition`, and `WorkspaceManifestDto` enforce canonical Composer package names (`vendor/package`), seamless inflation/deflation, and implement `Illuminate\Contracts\Support\Arrayable`.
+- 🛡️ **Path Normalization & Conflict Prevention**: Prevents path-traversal attacks (`..`) and strictly blocks alias-name collisions across all registered workspaces (Rule F-03).
 
 ---
 
@@ -143,18 +142,6 @@ $definitions = WorkspaceManifest::getWorkspaceDefinitions();
 - `registerPackageAlias(string $workspace, string $packageName, string $alias): self`
 - `updatePackageSkills(string $workspace, string $packageName, array $skills): self`
 - `removePackage(string $packageName, ?string $workspace = null, bool $pruneEmptyWorkspace = false): bool`
-
-### Standalone Runner (`./workspace`)
-
-The package publishes a zero-dependency CLI runner to the host root via `php artisan workspace-manifest:install`:
-
-```bash
-# Clone all missing workspace packages defined in workspace.json
-php workspace restore
-
-# Check status and physical presence of packages
-php workspace status
-```
 
 ---
 

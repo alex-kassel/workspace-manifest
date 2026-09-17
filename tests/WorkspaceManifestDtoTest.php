@@ -9,6 +9,7 @@ use AlexKassel\WorkspaceManifest\DTOs\PackageDefinition;
 use AlexKassel\WorkspaceManifest\DTOs\WorkspaceDefinition;
 use AlexKassel\WorkspaceManifest\DTOs\WorkspaceManifestDto;
 use AlexKassel\WorkspaceManifest\Exceptions\PackageConflictException;
+use Illuminate\Contracts\Support\Arrayable;
 
 class WorkspaceManifestDtoTest extends TestCase
 {
@@ -122,8 +123,9 @@ class WorkspaceManifestDtoTest extends TestCase
         // Find by short name
         $billing = $dto->findPackage('billing');
         $this->assertNotNull($billing);
-        $this->assertSame('billing', $billing->name);
-        $this->assertSame('acme/billing', $billing->canonicalName('acme'));
+        $this->assertSame('acme/billing', $billing->name);
+        $this->assertSame('billing', $billing->shortName());
+        $this->assertSame('acme/billing', $billing->canonicalName());
 
         // Find by canonical name
         $billingByCanonical = $dto->findPackage('acme/billing');
@@ -146,8 +148,8 @@ class WorkspaceManifestDtoTest extends TestCase
         $this->assertSame('packages', $dto->findPackageWorkspace('vendor/auth'));
 
         // Package names
-        $this->assertEqualsCanonicalizing(['billing', 'vendor/auth'], $dto->packageNames());
-        $this->assertSame(['billing'], $dto->packageNames('modules'));
+        $this->assertEqualsCanonicalizing(['acme/billing', 'vendor/auth'], $dto->packageNames());
+        $this->assertSame(['acme/billing'], $dto->packageNames('modules'));
     }
 
     public function test_workspace_definition_mutation_methods(): void
@@ -159,16 +161,16 @@ class WorkspaceManifestDtoTest extends TestCase
         $this->assertSame('newvendor', $wsWithVendor->vendor);
 
         // withPackage (normal addition and canonical sorting)
-        $pkgZ = new PackageDefinition(name: 'zeta', workspace: 'packages');
-        $pkgA = new PackageDefinition(name: 'alpha', workspace: 'packages', alias: 'A-Alpha');
+        $pkgZ = new PackageDefinition(name: 'acme/zeta', workspace: 'packages');
+        $pkgA = new PackageDefinition(name: 'acme/alpha', workspace: 'packages', alias: 'A-Alpha');
         $ws = $ws->withPackage($pkgZ)->withPackage($pkgA);
 
         $this->assertCount(2, $ws->packages);
-        $this->assertSame('alpha', $ws->packages[0]->name); // A-Alpha sorts before zeta
-        $this->assertSame('zeta', $ws->packages[1]->name);
+        $this->assertSame('acme/alpha', $ws->packages[0]->name); // A-Alpha sorts before zeta
+        $this->assertSame('acme/zeta', $ws->packages[1]->name);
 
         // withPackage conflict check (rule F-03)
-        $conflictingPkg = new PackageDefinition(name: 'other', workspace: 'packages', alias: 'zeta');
+        $conflictingPkg = new PackageDefinition(name: 'acme/other', workspace: 'packages', alias: 'zeta');
         $this->expectException(PackageConflictException::class);
         $ws->withPackage($conflictingPkg);
     }
@@ -179,8 +181,8 @@ class WorkspaceManifestDtoTest extends TestCase
             name: 'modules',
             vendor: 'acme',
             packages: [
-                new PackageDefinition(name: 'billing', workspace: 'modules', alias: 'Billing'),
-                new PackageDefinition(name: 'invoicing', workspace: 'modules'),
+                new PackageDefinition(name: 'acme/billing', workspace: 'modules', alias: 'Billing'),
+                new PackageDefinition(name: 'acme/invoicing', workspace: 'modules'),
             ],
         );
 
@@ -188,13 +190,13 @@ class WorkspaceManifestDtoTest extends TestCase
         [$ws1, $removed1] = $ws->withoutPackage('Billing');
         $this->assertTrue($removed1);
         $this->assertCount(1, $ws1->packages);
-        $this->assertSame('invoicing', $ws1->packages[0]->name);
+        $this->assertSame('acme/invoicing', $ws1->packages[0]->name);
 
         // Remove by canonical name
         [$ws2, $removed2] = $ws->withoutPackage('acme/invoicing');
         $this->assertTrue($removed2);
         $this->assertCount(1, $ws2->packages);
-        $this->assertSame('billing', $ws2->packages[0]->name);
+        $this->assertSame('acme/billing', $ws2->packages[0]->name);
 
         // Non-existent package
         [$ws3, $removed3] = $ws->withoutPackage('non-existent');
@@ -216,7 +218,7 @@ class WorkspaceManifestDtoTest extends TestCase
         $this->assertSame('acme', $dto->getWorkspace('packages')?->vendor);
 
         // withPackage
-        $pkg = new PackageDefinition(name: 'billing', workspace: 'packages');
+        $pkg = new PackageDefinition(name: 'acme/billing', workspace: 'packages');
         $dto = $dto->withPackage('packages', $pkg);
         $this->assertTrue($dto->hasPackage('acme/billing'));
 
@@ -240,5 +242,70 @@ class WorkspaceManifestDtoTest extends TestCase
         $dto2 = $dto2->withoutWorkspace('w1', reassignDefault: true);
         $this->assertFalse($dto2->hasWorkspace('w1'));
         $this->assertSame('w2', $dto2->default);
+    }
+
+    public function test_package_definition_rejects_short_name(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("PackageDefinition requires a canonical Composer package name including vendor (e.g. 'vendor/package'), given [billing].");
+
+        new PackageDefinition(name: 'billing', workspace: 'packages');
+    }
+
+    public function test_dtos_implement_arrayable_contract(): void
+    {
+        $pkg = new PackageDefinition(name: 'acme/billing', workspace: 'packages', alias: 'Billing');
+        $this->assertInstanceOf(Arrayable::class, $pkg);
+        $this->assertSame([
+            'name' => 'acme/billing',
+            'alias' => 'Billing',
+        ], $pkg->toArray());
+
+        $ws = new WorkspaceDefinition(name: 'packages', vendor: 'acme', packages: [$pkg]);
+        $this->assertInstanceOf(Arrayable::class, $ws);
+        $this->assertSame([
+            'name' => 'packages',
+            'vendor' => 'acme',
+            'packages' => [
+                [
+                    'name' => 'acme/billing',
+                    'alias' => 'Billing',
+                ],
+            ],
+            'hooks' => null,
+        ], $ws->toArray());
+
+        $dto = (new WorkspaceManifestDto)->withWorkspace('packages', vendor: 'acme')->withPackage('packages', $pkg);
+        $this->assertInstanceOf(Arrayable::class, $dto);
+    }
+
+    public function test_cross_workspace_collision_check(): void
+    {
+        $dto = (new WorkspaceManifestDto)
+            ->withWorkspace('packages')
+            ->withWorkspace('modules')
+            ->withPackage('packages', new PackageDefinition(name: 'acme/billing', workspace: 'packages'));
+
+        $this->expectException(PackageConflictException::class);
+        $this->expectExceptionMessage('Cannot add package [acme/billing] to workspace [modules]: package is already registered in workspace [packages].');
+
+        $dto->withPackage('modules', new PackageDefinition(name: 'acme/billing', workspace: 'modules'));
+    }
+
+    public function test_foreign_package_in_fixed_vendor_workspace(): void
+    {
+        $ws = new WorkspaceDefinition(
+            name: 'modules',
+            vendor: 'acme',
+            packages: [
+                new PackageDefinition(name: 'acme/billing', workspace: 'modules'),
+                new PackageDefinition(name: 'third-party/logger', workspace: 'modules'),
+            ],
+        );
+
+        $manifestArray = $ws->toManifestArray();
+
+        // acme/billing is collapsed to 'billing', third-party/logger retains full name
+        $this->assertSame(['billing', 'third-party/logger'], $manifestArray['packages']);
     }
 }

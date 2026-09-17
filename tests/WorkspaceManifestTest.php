@@ -282,8 +282,9 @@ class WorkspaceManifestTest extends TestCase
 
         $pkgDefault = $wm->getPackage('billing');
         $this->assertNotNull($pkgDefault);
-        $this->assertSame('billing', $pkgDefault->name);
-        $this->assertSame('acme/billing', $pkgDefault->canonicalName('acme'));
+        $this->assertSame('acme/billing', $pkgDefault->name);
+        $this->assertSame('billing', $pkgDefault->shortName());
+        $this->assertSame('acme/billing', $pkgDefault->canonicalName());
 
         // 4. Remove by canonical name
         $removed = $wm->removePackage('acme/billing', 'modules');
@@ -314,7 +315,7 @@ class WorkspaceManifestTest extends TestCase
             name: 'modules',
             vendor: 'myvendor',
             packages: [
-                new PackageDefinition(name: 'invoicing', workspace: 'modules', alias: 'Invoicing'),
+                new PackageDefinition(name: 'myvendor/invoicing', workspace: 'modules', alias: 'Invoicing'),
             ],
         );
 
@@ -330,6 +331,23 @@ class WorkspaceManifestTest extends TestCase
         $pkg = $freshManifest->getPackage('invoicing', 'modules');
         $this->assertNotNull($pkg);
         $this->assertSame('Invoicing', $pkg->alias);
+    }
+
+    public function test_workspace_manifest_mutate_dto_updates_state_and_cache(): void
+    {
+        $manifest = WorkspaceManifest::open($this->manifestPath)->init();
+        $manifest->registerWorkspace('packages', 'acme');
+
+        $returnedDto = $manifest->mutateDto(function (WorkspaceManifestDto $dto): WorkspaceManifestDto {
+            return $dto->withPackage('packages', new PackageDefinition('acme/tester', 'packages'));
+        });
+
+        $this->assertTrue($returnedDto->hasPackage('acme/tester'));
+        $this->assertSame($returnedDto, $manifest->toDto());
+        $this->assertTrue($manifest->hasPackage('acme/tester'));
+
+        $fresh = WorkspaceManifest::open($this->manifestPath);
+        $this->assertTrue($fresh->hasPackage('acme/tester'));
     }
 
     public function test_workspace_manifest_caches_hydrated_dto_and_invalidates_on_mutation(): void

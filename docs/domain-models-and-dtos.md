@@ -6,10 +6,10 @@ This document describes the typed domain models and Data Transfer Objects (DTOs)
 
 ## 1. Overview & Hierarchy
 
-A `workspace.json` file is represented in PHP as an object graph of immutable, strongly-typed DTOs:
+A `workspace.json` file is represented in PHP as an object graph of immutable, strongly-typed DTOs implementing Laravel's `Illuminate\Contracts\Support\Arrayable`:
 
 ```text
-WorkspaceManifestDto
+WorkspaceManifestDto (implements Arrayable, ManifestDto)
   ├── $schema (string|null)
   ├── default (string|null)
   ├── repositoryUrlTemplate (string)
@@ -19,7 +19,7 @@ WorkspaceManifestDto
         ├── vendor (string|null)
         ├── hooks (array|null)
         └── packages (array<int, PackageDefinition>)
-              ├── name (string)
+              ├── name (string - ALWAYS canonical "vendor/package")
               ├── workspace (string)
               ├── alias (string|null)
               ├── url (string|null)
@@ -30,14 +30,14 @@ WorkspaceManifestDto
 
 ## 2. Root Model: `WorkspaceManifestDto`
 
-`AlexKassel\WorkspaceManifest\DTOs\WorkspaceManifestDto` represents the root manifest document.
+`AlexKassel\WorkspaceManifest\DTOs\WorkspaceManifestDto` represents the root manifest document. It implements `ManifestDto` and `Arrayable`.
 
 ### Properties:
 * `schema`: Path or URL to the JSON Schema.
 * `default`: The default workspace directory (e.g. `"packages"`).
 * `repositoryUrlTemplate`: Remote Git repository URL template (e.g. `"git@github.com:{package}.git"`).
 * `workspaces`: Associative map of `[workspaceName => WorkspaceDefinition]`.
-* `extra`: Unmapped custom properties preserved for forward compatibility.
+* `extra`: Unmapped custom root-level properties preserved for forward compatibility.
 
 ### Query Methods:
 ```php
@@ -57,19 +57,24 @@ $pkg = $dto->findPackage('billing');
 // Find which workspace contains a package
 $wsName = $dto->findPackageWorkspace('acme/billing'); // e.g. "packages"
 
-// Get all package names across all workspaces
+// Get all canonical package names across all workspaces
 $allNames = $dto->packageNames();
 ```
+
+### Global Cross-Workspace Conflict Prevention (Rule F-03):
+When adding packages via `$dto->withPackage($workspace, $package)`, `WorkspaceManifestDto` enforces conflict detection across **all** registered workspaces:
+- If a package with the same canonical name already exists in any workspace, a `PackageConflictException` is thrown.
+- If a package declares an `alias` matching any existing package name or alias anywhere in the project, a `PackageConflictException` is thrown.
 
 ---
 
 ## 3. Workspace Model: `WorkspaceDefinition`
 
-`AlexKassel\WorkspaceManifest\DTOs\WorkspaceDefinition` represents an individual workspace directory on disk.
+`AlexKassel\WorkspaceManifest\DTOs\WorkspaceDefinition` represents an individual workspace directory on disk. It implements `Illuminate\Contracts\Support\Arrayable`.
 
 ### Fixed-Vendor vs. Multi-Vendor Workspaces:
 * **Fixed-Vendor Workspaces (`vendor !== null`):**
-  When a workspace specifies a vendor (e.g. `"vendor": "acme"`), packages belonging to that vendor are stored as simple short names (e.g. `"billing"` instead of `"acme/billing"`). This yields cleaner JSON and matches flat directory layouts:
+  When a workspace specifies a vendor (e.g. `"vendor": "acme"`), packages belonging to that vendor are persisted as short slugs (e.g. `"billing"`). However, at runtime in PHP, they are **always inflated into full canonical names** (`"acme/billing"`):
   ```json
   "packages": {
     "vendor": "acme",
@@ -77,7 +82,7 @@ $allNames = $dto->packageNames();
   }
   ```
 * **Multi-Vendor / Vendor-less Workspaces (`vendor === null`):**
-  Packages must explicitly specify their canonical vendor prefix:
+  Packages explicitly specify their full vendor prefix in the JSON file:
   ```json
   "third-party": {
     "vendor": null,
@@ -90,56 +95,102 @@ $allNames = $dto->packageNames();
 // Check if workspace enforces fixed vendor
 $isFixed = $ws->isFixedVendor();
 
-// Get list of package names
+// Get list of canonical package names in workspace
 $names = $ws->packageNames();
 
-// Find package by local name, canonical name, or alias (case-insensitive)
+// Find package by short name, canonical name, or alias (case-insensitive)
 $pkg = $ws->findPackage('billing');
 
-// Immutably add/update package definition
+// Immutably add/update package definition (sorted alphabetically by directory/alias)
 $newWs = $ws->withPackage($packageDefinition);
 
 // Immutably remove package definition
 [$newWs, $wasRemoved] = $ws->withoutPackage('billing');
+
+// Convert to raw manifest structure for JSON storage
+$manifestData = $ws->toManifestArray();
+
+// Convert to normalized array representation (Arrayable)
+$arrayData = $ws->toArray();
 ```
 
 ---
 
 ## 4. Package Model: `PackageDefinition`
 
-`AlexKassel\WorkspaceManifest\DTOs\PackageDefinition` represents an individual package within a workspace.
+`AlexKassel\WorkspaceManifest\DTOs\PackageDefinition` represents an individual package within a workspace. It implements `Illuminate\Contracts\Support\Arrayable`.
 
-### Properties:
-* `name`: Stored package name (e.g. `"billing"` in fixed-vendor workspace, or `"acme/billing"` in vendor-less workspace).
-* `workspace`: Relative directory of the parent workspace (e.g. `"packages"`).
-* `alias`: Custom directory alias (e.g. `"Billing"`), or `null`.
-* `url`: Custom Git remote clone URL, or `null`.
-* `skills`: Array of agent skills assigned to this package (e.g. `["laravel-best-practices"]`).
+### ⚠️ The Canonical Name Invariant:
+> **Core Architectural Rule:** `PackageDefinition::$name` **MUST ALWAYS** be a canonical Composer package name (`vendor/package`).
+>
+> A short name (e.g. `'billing'`) is **strictly forbidden** inside `PackageDefinition`. If instantiated with a name lacking a vendor slash `/`, the constructor throws an `InvalidArgumentException`:
+> ```php
+> // ❌ Throws InvalidArgumentException!
+> new PackageDefinition(name: 'billing', workspace: 'packages');
+>
+> // ✅ Always use canonical name:
+> new PackageDefinition(name: 'acme/billing', workspace: 'packages');
+> ```
 
-### Name Resolution & Effective Directory:
+### Inflation & Deflation Lifecycle:
 
-```php
-// Stored name: what is physically written in workspace.json
-echo $pkg->name; // "billing"
+`PackageDefinition` acts as a pure domain object at runtime, while seamlessly collapsing for concise JSON storage on disk:
 
-// Canonical name: resolves full vendor/package name
-echo $pkg->canonicalName($ws->vendor); // "acme/billing"
-
-// Effective directory: alias takes precedence if defined; otherwise stored name
-echo $pkg->effectiveDirectory(); // "Billing" or "billing"
+```
+                  ┌──────────────────────────────────────────────┐
+                  │          workspace.json (On Disk)            │
+                  │  packages: ["billing", "vendor/pkg"]         │
+                  └──────────────────────────────────────────────┘
+                                  │               ▲
+                         Inflation│               │Deflation
+                     fromManifest()               │toManifestEntry()
+                                  ▼               │
+                  ┌──────────────────────────────────────────────┐
+                  │       PackageDefinition (In-Memory DTO)      │
+                  │  $name: ALWAYS canonical "acme/billing"       │
+                  │  implements Arrayable                        │
+                  └──────────────────────────────────────────────┘
 ```
 
-### Manifest Serialization:
-A `PackageDefinition` serializes to a clean scalar string if it only has a name without extra attributes, or to an object if it defines an alias, url, or skills:
+1. **Inflation (`fromManifest`):**
+   When parsing from `workspace.json`, if the parent workspace has a `vendor` configured (e.g. `"acme"`) and the package entry is a short slug (`"billing"` or `{"name": "billing"}`), `PackageDefinition::fromManifest()` automatically prepends the vendor prefix to form `"acme/billing"`.
+2. **Deflation (`toManifestEntry`):**
+   When serializing back to `workspace.json`, `toManifestEntry(?string $workspaceVendor)` checks whether the package vendor matches `$workspaceVendor`:
+   - If it matches, the vendor prefix is stripped (e.g. `"acme/billing"` → `"billing"`).
+   - If the package has no custom `alias`, `url`, or `skills`, it collapses to a scalar string (`"billing"`).
+   - If it has custom metadata, it serializes as an object (`{"name": "billing", "alias": "..."}`).
+   - Foreign packages (e.g. `"other-vendor/tool"`) retain their full name (`"other-vendor/tool"`).
 
+### Helper Methods:
 ```php
-// Pure string format in JSON: "billing"
-$entry = $pkg->toManifestEntry();
+$pkg = new PackageDefinition(
+    name: 'acme/billing',
+    workspace: 'packages',
+    alias: 'BillingModule',
+    url: 'git@github.com:acme/billing.git',
+    skills: ['testing-best-practices'],
+);
 
-// Object format in JSON:
-// {
-//   "name": "billing",
-//   "alias": "BillingModule",
-//   "skills": ["testing"]
-// }
+// 1. Canonical Name (always returns $this->name)
+echo $pkg->canonicalName(); // "acme/billing"
+
+// 2. Vendor extraction
+echo $pkg->vendor(); // "acme"
+
+// 3. Short slug extraction
+echo $pkg->shortName(); // "billing"
+
+// 4. Effective directory on disk (alias takes precedence; otherwise shortName if vendor matches)
+echo $pkg->effectiveDirectory('acme'); // "BillingModule"
+
+// 5. Arrayable serialization
+$array = $pkg->toArray();
+// Returns:
+// [
+//     'name' => 'acme/billing',
+//     'alias' => 'BillingModule',
+//     'url' => 'git@github.com:acme/billing.git',
+//     'skills' => ['testing-best-practices'],
+// ]
 ```
+

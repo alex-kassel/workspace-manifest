@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace AlexKassel\WorkspaceManifest\DTOs;
 
 use AlexKassel\WorkspaceManifest\Exceptions\PackageConflictException;
+use Illuminate\Contracts\Support\Arrayable;
 
-final class WorkspaceDefinition
+/**
+ * @implements Arrayable<string, mixed>
+ */
+final class WorkspaceDefinition implements Arrayable
 {
     /**
      * @var array<int, PackageDefinition>
@@ -43,7 +47,7 @@ final class WorkspaceDefinition
         $packages = [];
         foreach ($rawPackages as $rawPkg) {
             if (is_string($rawPkg) || is_array($rawPkg)) {
-                $packages[] = PackageDefinition::fromManifest($name, $rawPkg);
+                $packages[] = PackageDefinition::fromManifest($name, $rawPkg, $vendor);
             }
         }
 
@@ -83,7 +87,7 @@ final class WorkspaceDefinition
         foreach ($this->packages as $pkg) {
             if (
                 $pkg->name === $target
-                || $pkg->canonicalName($this->vendor) === $target
+                || ($this->vendor !== null && strtolower("{$this->vendor}/{$target}") === $pkg->name)
                 || ($pkg->alias !== null && strcasecmp($pkg->alias, $nameOrAlias) === 0)
             ) {
                 return $pkg;
@@ -91,6 +95,14 @@ final class WorkspaceDefinition
         }
 
         return null;
+    }
+
+    /**
+     * Determine if a package exists in this workspace by name, short name, or alias.
+     */
+    public function hasPackage(string $nameOrAlias): bool
+    {
+        return $this->findPackage($nameOrAlias) !== null;
     }
 
     /**
@@ -121,27 +133,22 @@ final class WorkspaceDefinition
         $cleanUrl = $package->url !== null && trim($package->url) !== '' ? trim($package->url) : null;
         $wsVendor = $this->vendor;
 
-        if (str_contains($cleanPackageName, '/')) {
-            [$inputVendor, $inputShortName] = explode('/', $cleanPackageName, 2);
-            $canonicalNewName = $cleanPackageName;
-            $storedName = ($wsVendor !== null && $inputVendor === $wsVendor)
-                ? $inputShortName
-                : $cleanPackageName;
-        } else {
-            $canonicalNewName = $wsVendor !== null ? "{$wsVendor}/{$cleanPackageName}" : $cleanPackageName;
-            $storedName = $cleanPackageName;
-        }
+        $canonicalNewName = (! str_contains($cleanPackageName, '/') && $wsVendor !== null)
+            ? "{$wsVendor}/{$cleanPackageName}"
+            : $cleanPackageName;
+
+        $shortNewName = str_contains($canonicalNewName, '/')
+            ? explode('/', $canonicalNewName, 2)[1]
+            : $canonicalNewName;
 
         foreach ($this->packages as $item) {
-            $existingCanonical = $item->canonicalName($wsVendor);
-
-            if ($existingCanonical === $canonicalNewName) {
+            if ($item->name === $canonicalNewName) {
                 continue;
             }
 
             if ($item->alias !== null && (
                 strcasecmp($item->alias, $canonicalNewName) === 0 ||
-                strcasecmp($item->alias, $storedName) === 0
+                strcasecmp($item->alias, $shortNewName) === 0
             )) {
                 throw new PackageConflictException(
                     $canonicalNewName,
@@ -152,8 +159,8 @@ final class WorkspaceDefinition
 
             if ($cleanAlias !== null) {
                 if (
-                    strcasecmp($cleanAlias, $existingCanonical) === 0 ||
-                    strcasecmp($cleanAlias, $item->name) === 0
+                    strcasecmp($cleanAlias, $item->name) === 0 ||
+                    strcasecmp($cleanAlias, $item->shortName()) === 0
                 ) {
                     throw new PackageConflictException(
                         $cleanAlias,
@@ -173,7 +180,7 @@ final class WorkspaceDefinition
         }
 
         $normalizedPackage = new PackageDefinition(
-            name: $storedName,
+            name: $canonicalNewName,
             workspace: $this->name,
             alias: $cleanAlias,
             url: $cleanUrl,
@@ -183,7 +190,7 @@ final class WorkspaceDefinition
         $packages = $this->packages;
         $replaced = false;
         foreach ($packages as $index => $item) {
-            if ($item->canonicalName($wsVendor) === $canonicalNewName) {
+            if ($item->name === $canonicalNewName) {
                 $packages[$index] = $normalizedPackage;
                 $replaced = true;
                 break;
@@ -194,7 +201,7 @@ final class WorkspaceDefinition
             $packages[] = $normalizedPackage;
         }
 
-        usort($packages, fn (PackageDefinition $a, PackageDefinition $b) => strcasecmp($a->effectiveDirectory(), $b->effectiveDirectory()));
+        usort($packages, fn (PackageDefinition $a, PackageDefinition $b) => strcasecmp($a->effectiveDirectory($this->vendor), $b->effectiveDirectory($this->vendor)));
 
         return new self(
             name: $this->name,
@@ -222,8 +229,9 @@ final class WorkspaceDefinition
 
         foreach ($this->packages as $pkg) {
             if (
-                $pkg->canonicalName($wsVendor) === $targetCanonical
+                $pkg->name === $targetCanonical
                 || $pkg->name === $cleanTarget
+                || $pkg->shortName() === $cleanTarget
                 || ($pkg->alias !== null && strcasecmp($pkg->alias, $packageName) === 0)
             ) {
                 $removed = true;
@@ -288,7 +296,7 @@ final class WorkspaceDefinition
     {
         $data = [
             'vendor' => $this->vendor,
-            'packages' => array_map(fn (PackageDefinition $pkg) => $pkg->toManifestEntry(), $this->packages),
+            'packages' => array_map(fn (PackageDefinition $pkg) => $pkg->toManifestEntry($this->vendor), $this->packages),
         ];
 
         if ($this->hooks !== null) {
@@ -299,16 +307,19 @@ final class WorkspaceDefinition
     }
 
     /**
-     * Convert to array representation.
+     * Convert to array representation (Arrayable contract).
      *
-     * @return array{vendor: ?string, packages: array<int, array{name: string, workspace: string, alias: ?string, url: ?string, skills: array<string>}>, hooks: ?array<string, mixed>}
+     * @return array{name: string, vendor: ?string, packages: array<int, array{name: string, alias?: string, url?: string, skills?: array<string>}>, hooks: ?array<string, mixed>}
      */
     public function toArray(): array
     {
-        return [
+        $data = [
+            'name' => $this->name,
             'vendor' => $this->vendor,
             'packages' => array_map(fn (PackageDefinition $pkg) => $pkg->toArray(), $this->packages),
             'hooks' => $this->hooks,
         ];
+
+        return $data;
     }
 }

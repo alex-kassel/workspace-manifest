@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AlexKassel\WorkspaceManifest\DTOs;
 
 use AlexKassel\ManifestEngine\Contracts\ManifestDto;
+use AlexKassel\WorkspaceManifest\Exceptions\PackageConflictException;
 
 /**
  * @implements ManifestDto<string, mixed>
@@ -305,6 +306,28 @@ final class WorkspaceManifestDto implements ManifestDto
         $dto = isset($this->workspaces[$workspace])
             ? $this
             : $this->withWorkspace($workspace);
+
+        foreach ($dto->workspaces as $otherWsName => $otherWs) {
+            if ($otherWsName === $workspace) {
+                continue;
+            }
+
+            if ($otherWs->hasPackage($package->name)) {
+                throw new PackageConflictException(
+                    $package->name,
+                    $package->name,
+                    "Cannot add package [{$package->name}] to workspace [{$workspace}]: package is already registered in workspace [{$otherWsName}]."
+                );
+            }
+
+            if ($package->alias !== null && $otherWs->findPackage($package->alias) !== null) {
+                throw new PackageConflictException(
+                    $package->alias,
+                    $package->name,
+                    "Cannot use alias [{$package->alias}] for package [{$package->name}] in workspace [{$workspace}]: it conflicts with workspace [{$otherWsName}]."
+                );
+            }
+        }
 
         $workspaces = $dto->workspaces;
         $workspaces[$workspace] = $workspaces[$workspace]->withPackage($package);

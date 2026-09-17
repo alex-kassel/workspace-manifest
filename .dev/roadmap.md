@@ -27,14 +27,11 @@ While read operations return rich typed DTOs (`PackageDefinition`, `WorkspaceDef
 
 ---
 
-## 3. Global Multi-Workspace Conflict Prevention (Rule F-03)
+## 3. Global Multi-Workspace Conflict Prevention (Rule F-03) [Implemented]
 
-### Problem
-Conflict checks currently validate collisions within the target workspace. In multi-workspace setups (e.g. `packages` and `modules`), a package or alias in `modules` can collide with one in `packages`, causing root directory collisions.
-
-### Planned Solution
-- Check package names and directory aliases globally across all registered workspaces.
-- Throw `PackageConflictException` indicating which workspace holds the conflicting entry.
+### Implementation
+- Added cross-workspace canonical package name and directory alias checks in `WorkspaceManifestDto::withPackage()`.
+- Throws `PackageConflictException` whenever an added package or alias collides with an existing registration in any workspace.
 
 ---
 

@@ -437,25 +437,34 @@ If redesigned cleanly from first principles:
   - **Solution:** Move runner files and commands to `workspace-development-toolkit`. Remove `"alex-kassel/stub-engine"` from `composer.json`. Remove registrations from `WorkspaceManifestServiceProvider`.
   - **Outcome:** Successfully transferred parameterized runner stub and token rendering (`StubEngine`) into `workspace-development-toolkit` (`PublishWorkspaceRunnerAction`). Removed runner installer, console command, stub, and tests from `workspace-manifest`. Removed `alex-kassel/stub-engine` dependency from `workspace-manifest/composer.json`. All test suites pass.
 
-- [ ] **Step 3.2: Delete dead code in DTOs [P2]**
-  - **Problem:** `WorkspaceDefinition::toArray()` and `PackageDefinition::toArray()` are unused in production.
-  - **Solution:** Remove both methods and their corresponding redundant assertions.
+- [x] **Step 3.2: Enforce Canonical DTOs & Implement Arrayable Contract [P2]**
+  - **Problem:** DTOs had ambiguous `toArray()` / `toManifestArray()` behavior, lacked standard Laravel contract implementation, and allowed non-canonical short names (`'billing'`) inside `PackageDefinition`, causing brittle downstream type handling.
+  - **Solution:**
+    1. Implement Laravel's `Illuminate\Contracts\Support\Arrayable` on all three DTOs (`WorkspaceManifestDto`, `WorkspaceDefinition`, `PackageDefinition`).
+    2. Establish **Canonical Name Invariant**: `PackageDefinition::$name` is **always** `vendor/package` (guarded by constructor check for `/`).
+    3. Implement **Inflation/Deflation boundary**: `fromManifest` automatically inflates short slugs into canonical names using parent workspace vendor; `toManifestEntry` / `toManifestArray` cleanly deflates matching vendor names to concise slugs for disk serialization. Foreign vendor packages remain untouched.
+  - **Outcome:** Clean contract implementation, bulletproof canonical representation at runtime, seamless serialization roundtrip.
 
-- [ ] **Step 3.3: Comply with Strict Fallback Encapsulation [P3]**
+- [x] **Step 3.3: Comply with Strict Fallback Encapsulation [P3]**
   - **Problem:** Raw literals `[]` passed to `manifest->get()` in `WorkspaceManifest`.
   - **Solution:** Declare `public const DEFAULT_EMPTY_ARRAY = [];` and replace literal occurrences.
+  - **Outcome:** Replaced raw `[]` fallback literals with `self::DEFAULT_EMPTY_ARRAY` in `WorkspaceManifest`.
 
-- [ ] **Step 3.4: Expand conflict check rule F-03 across all workspaces [P3]**
-  - **Problem:** `WorkspaceDefinition::withPackage()` only checks within the local workspace.
+- [x] **Step 3.4: Expand conflict check rule F-03 across all workspaces [P3]**
+  - **Problem:** `WorkspaceDefinition::withPackage()` only checked within the local workspace, allowing identical package names or aliases in different workspaces.
   - **Solution:** Add cross-workspace alias and package name collision checks in `WorkspaceManifestDto::withPackage()`.
+  - **Outcome:** `WorkspaceManifestDto::withPackage()` now validates against both canonical package names and aliases across all registered workspaces, throwing `PackageConflictException` on collisions.
 
 ---
 
 ### Phase 4: Verification & Static Analysis
 
-- [ ] **Step 4.1: Run test suite**
-  - **Action:** Execute `vendor/bin/phpunit packages/alex-kassel/workspace-manifest/tests` ensuring all 27+ tests pass.
-- [ ] **Step 4.2: Run static analysis**
-  - **Action:** Execute `vendor/bin/phpstan analyse -c packages/alex-kassel/workspace-manifest/phpstan.neon` at Level 8.
-- [ ] **Step 4.3: Run code style formatter**
-  - **Action:** Execute `vendor/bin/pint packages/alex-kassel/workspace-manifest --format agent`.
+- [x] **Step 4.1: Run test suite**
+  - **Action:** Executed `vendor/bin/phpunit -c packages/alex-kassel/workspace-manifest/phpunit.xml`.
+  - **Outcome:** 50 tests, 302 assertions — 100% passed.
+- [x] **Step 4.2: Run static analysis**
+  - **Action:** Executed `vendor/bin/phpstan analyse -c packages/alex-kassel/workspace-manifest/phpstan.neon packages/alex-kassel/workspace-manifest/src`.
+  - **Outcome:** Level 8 passed with 0 errors.
+- [x] **Step 4.3: Run code style formatter**
+  - **Action:** Executed `vendor/bin/pint packages/alex-kassel/workspace-manifest --format agent`.
+  - **Outcome:** 100% compliant with Laravel Pint agent rules.

@@ -28,6 +28,8 @@ class WorkspaceManifest
 
     public const DEFAULT_REPOSITORY_URL_TEMPLATE = 'git@github.com:{package}.git';
 
+    public const DEFAULT_EMPTY_ARRAY = [];
+
     protected Manifest $manifest;
 
     protected ?WorkspaceManifestDto $cachedDto = null;
@@ -167,25 +169,25 @@ class WorkspaceManifest
     }
 
     /**
+     * Mutate workspace manifest DTO under atomic lock and update DTO cache.
+     *
+     * @param  Closure(WorkspaceManifestDto): (WorkspaceManifestDto|void)  $mutator
+     */
+    public function mutateDto(Closure $mutator): WorkspaceManifestDto
+    {
+        $dto = $this->manifest->mutateDto(WorkspaceManifestDto::class, $mutator);
+        $this->cachedDto = $dto;
+
+        return $dto;
+    }
+
+    /**
      * Save a typed WorkspaceManifestDto back to the manifest.
      */
     public function saveDto(WorkspaceManifestDto $dto): self
     {
-        $this->manifest->saveDto($dto);
+        $this->manifest->save($dto);
         $this->cachedDto = $dto;
-
-        return $this;
-    }
-
-    /**
-     * Mutate underlying manifest data under atomic lock and invalidate DTO cache.
-     *
-     * @param  Closure(array<string, mixed>): array<string, mixed>  $callback
-     */
-    protected function mutate(Closure $callback): self
-    {
-        $this->cachedDto = null;
-        $this->manifest->mutate($callback);
 
         return $this;
     }
@@ -222,11 +224,7 @@ class WorkspaceManifest
     {
         $clean = $workspace !== null ? self::normalizeWorkspacePath($workspace) : null;
 
-        $this->mutate(function (array $data) use ($clean): array {
-            return WorkspaceManifestDto::fromArray($data)
-                ->withDefault($clean)
-                ->toArray();
-        });
+        $this->mutateDto(static fn (WorkspaceManifestDto $dto): WorkspaceManifestDto => $dto->withDefault($clean));
 
         return $this;
     }
@@ -253,11 +251,7 @@ class WorkspaceManifest
 
         $cleanTemplate = $result->normalized() ?? trim($template);
 
-        $this->mutate(function (array $data) use ($cleanTemplate): array {
-            return WorkspaceManifestDto::fromArray($data)
-                ->withRepositoryUrlTemplate($cleanTemplate)
-                ->toArray();
-        });
+        $this->mutateDto(static fn (WorkspaceManifestDto $dto): WorkspaceManifestDto => $dto->withRepositoryUrlTemplate($cleanTemplate));
 
         return $this;
     }
@@ -270,7 +264,7 @@ class WorkspaceManifest
     public function getWorkspaces(): array
     {
         /** @var array<string, array{vendor: ?string, packages: array<int, string|array{name: string, alias?: string, url?: string, skills?: array<string>}>}> */
-        return (array) $this->manifest->get('workspaces', []);
+        return (array) $this->manifest->get('workspaces', self::DEFAULT_EMPTY_ARRAY);
     }
 
     /**
@@ -347,11 +341,7 @@ class WorkspaceManifest
 
         $cleanVendor = $vendorResult->normalized();
 
-        $this->mutate(function (array $data) use ($cleanWorkspace, $cleanVendor, $asDefault): array {
-            return WorkspaceManifestDto::fromArray($data)
-                ->withWorkspace($cleanWorkspace, $cleanVendor, $asDefault)
-                ->toArray();
-        });
+        $this->mutateDto(static fn (WorkspaceManifestDto $dto): WorkspaceManifestDto => $dto->withWorkspace($cleanWorkspace, $cleanVendor, $asDefault));
 
         return $this;
     }
@@ -370,11 +360,7 @@ class WorkspaceManifest
             throw new WorkspaceNotFoundException($cleanWorkspace);
         }
 
-        $this->mutate(function (array $data) use ($cleanWorkspace, $reassignDefault): array {
-            return WorkspaceManifestDto::fromArray($data)
-                ->withoutWorkspace($cleanWorkspace, $reassignDefault)
-                ->toArray();
-        });
+        $this->mutateDto(static fn (WorkspaceManifestDto $dto): WorkspaceManifestDto => $dto->withoutWorkspace($cleanWorkspace, $reassignDefault));
 
         return $this;
     }
@@ -428,11 +414,7 @@ class WorkspaceManifest
 
         $cleanVendor = $vendorResult->normalized();
 
-        $this->mutate(function (array $data) use ($cleanWorkspace, $cleanVendor): array {
-            return WorkspaceManifestDto::fromArray($data)
-                ->withWorkspaceVendor($cleanWorkspace, $cleanVendor)
-                ->toArray();
-        });
+        $this->mutateDto(static fn (WorkspaceManifestDto $dto): WorkspaceManifestDto => $dto->withWorkspaceVendor($cleanWorkspace, $cleanVendor));
 
         return $this;
     }
@@ -552,21 +534,17 @@ class WorkspaceManifest
         }
 
         $cleanUrl = $url !== null && trim($url) !== '' ? trim($url) : null;
-        $storedName = $pkgResult->storedName ?? strtolower(trim($packageName));
+        $canonicalName = $pkgResult->canonicalName ?? strtolower(trim($packageName));
 
         $package = new PackageDefinition(
-            name: $storedName,
+            name: $canonicalName,
             workspace: $cleanWorkspace,
             alias: $cleanAlias,
             url: $cleanUrl,
             skills: $skills,
         );
 
-        $this->mutate(function (array $data) use ($cleanWorkspace, $package): array {
-            return WorkspaceManifestDto::fromArray($data)
-                ->withPackage($cleanWorkspace, $package)
-                ->toArray();
-        });
+        $this->mutateDto(static fn (WorkspaceManifestDto $dto): WorkspaceManifestDto => $dto->withPackage($cleanWorkspace, $package));
 
         return $this;
     }
@@ -662,11 +640,7 @@ class WorkspaceManifest
             throw new InvalidArgumentException('Hook name cannot be empty.');
         }
 
-        $this->mutate(function (array $data) use ($cleanWorkspace, $cleanHook, $command): array {
-            return WorkspaceManifestDto::fromArray($data)
-                ->withWorkspaceHook($cleanWorkspace, $cleanHook, $command)
-                ->toArray();
-        });
+        $this->mutateDto(static fn (WorkspaceManifestDto $dto): WorkspaceManifestDto => $dto->withWorkspaceHook($cleanWorkspace, $cleanHook, $command));
 
         return $this;
     }
@@ -687,11 +661,7 @@ class WorkspaceManifest
 
         $cleanHook = trim($hook);
 
-        $this->mutate(function (array $data) use ($cleanWorkspace, $cleanHook): array {
-            return WorkspaceManifestDto::fromArray($data)
-                ->withoutWorkspaceHook($cleanWorkspace, $cleanHook)
-                ->toArray();
-        });
+        $this->mutateDto(static fn (WorkspaceManifestDto $dto): WorkspaceManifestDto => $dto->withoutWorkspaceHook($cleanWorkspace, $cleanHook));
 
         return $this;
     }
@@ -709,22 +679,16 @@ class WorkspaceManifest
 
         $removed = false;
 
-        $this->mutate(function (array $data) use ($explicitWorkspace, $cleanPackageName, $pruneEmptyWorkspace, &$removed): array {
-            $dto = WorkspaceManifestDto::fromArray($data);
-
+        $this->mutateDto(function (WorkspaceManifestDto $dto) use ($explicitWorkspace, $cleanPackageName, $pruneEmptyWorkspace, &$removed): WorkspaceManifestDto {
             $targetWorkspace = $explicitWorkspace ?? $dto->findPackageWorkspace($cleanPackageName);
             if ($targetWorkspace === null) {
-                return $data;
+                return $dto;
             }
 
             [$newDto, $wasRemoved] = $dto->withoutPackage($cleanPackageName, $targetWorkspace, $pruneEmptyWorkspace);
             $removed = $wasRemoved;
 
-            if (! $wasRemoved) {
-                return $data;
-            }
-
-            return $newDto->toArray();
+            return $newDto;
         });
 
         return $removed;

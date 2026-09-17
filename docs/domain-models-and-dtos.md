@@ -192,5 +192,39 @@ $array = $pkg->toArray();
 //     'url' => 'git@github.com:acme/billing.git',
 //     'skills' => ['testing-best-practices'],
 // ]
+
+// 6. Immutable Fluent Withers
+$updatedPkg = $pkg
+    ->withAlias('NewAlias')
+    ->withUrl('https://custom-git.com/acme/billing.git')
+    ->withSkills(['package-verification', 'laravel-best-practices'])
+    ->withWorkspace('modules');
+
+// 7. CQS Mutation Symmetry: savePackage() & saveWorkspace()
+// Persist DTOs directly without decomposing into primitive parameter lists:
+$manifest = WorkspaceManifest::open();
+
+// Save package directly
+$manifest->savePackage($updatedPkg);
+
+// Save workspace directly
+$ws = new WorkspaceDefinition(name: 'modules', vendor: 'acme');
+$manifest->saveWorkspace($ws);
 ```
+
+---
+
+## 5. Exceptions Reference
+
+| Exception | Thrown When |
+| :--- | :--- |
+| `PackageNotFoundException` | Attempting to register an alias or update skills on a package that is not registered. |
+| `PackageConflictException` | A package name or alias collides with an existing registration across any workspace (Rule F-03). |
+| `WorkspaceNotFoundException` | Operating on a workspace that is not defined in `workspace.json`. |
+| `WorkspaceAlreadyExistsException` | Attempting to register a workspace that is already defined. |
+| `InvalidPackageNameException` | Package name violates Composer naming rules or lacks a vendor in multi-vendor workspace. |
+| `InvalidPackageAliasException` | Alias contains directory traversal or slashes. |
+| `InvalidVendorSlugException` | Vendor prefix contains invalid characters. |
+| `InvalidWorkspacePathException` | Workspace path is absolute or attempts path traversal (`..`). |
+
 

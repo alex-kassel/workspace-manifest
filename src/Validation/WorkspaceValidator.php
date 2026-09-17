@@ -196,4 +196,24 @@ final class WorkspaceValidator
 
         return ValidationResult::valid($trimmed);
     }
+
+    /**
+     * Validate agent skills list.
+     */
+    public static function validateSkills(mixed $input): ValidationResult
+    {
+        if (! is_array($input)) {
+            return ValidationResult::invalid('Skills must be an array of non-empty strings.');
+        }
+
+        $validated = [];
+        foreach ($input as $index => $item) {
+            if (! is_string($item) || trim($item) === '') {
+                return ValidationResult::invalid("Skill at index [{$index}] must be a non-empty string.");
+            }
+            $validated[] = trim($item);
+        }
+
+        return ValidationResult::valid(array_values(array_unique($validated)));
+    }
 }

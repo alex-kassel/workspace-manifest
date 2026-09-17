@@ -13,7 +13,7 @@ use InvalidArgumentException;
 final class PackageDefinition implements Arrayable
 {
     /**
-     * @param  array<string>  $skills
+     * @param  array<mixed>  $skills
      *
      * @throws InvalidArgumentException
      */
@@ -29,6 +29,72 @@ final class PackageDefinition implements Arrayable
                 "PackageDefinition requires a canonical Composer package name including vendor (e.g. 'vendor/package'), given [{$this->name}]."
             );
         }
+
+        foreach ($this->skills as $skill) {
+            if (! is_string($skill) || trim($skill) === '') {
+                throw new InvalidArgumentException(
+                    'Each skill in PackageDefinition must be a non-empty string.'
+                );
+            }
+        }
+    }
+
+    /**
+     * Return a new instance with updated directory alias.
+     */
+    public function withAlias(?string $alias): self
+    {
+        return new self(
+            name: $this->name,
+            workspace: $this->workspace,
+            alias: $alias !== null && trim($alias) !== '' ? trim($alias) : null,
+            url: $this->url,
+            skills: $this->skills,
+        );
+    }
+
+    /**
+     * Return a new instance with updated custom remote URL.
+     */
+    public function withUrl(?string $url): self
+    {
+        return new self(
+            name: $this->name,
+            workspace: $this->workspace,
+            alias: $this->alias,
+            url: $url !== null && trim($url) !== '' ? trim($url) : null,
+            skills: $this->skills,
+        );
+    }
+
+    /**
+     * Return a new instance with updated skills.
+     *
+     * @param  array<string>  $skills
+     */
+    public function withSkills(array $skills): self
+    {
+        return new self(
+            name: $this->name,
+            workspace: $this->workspace,
+            alias: $this->alias,
+            url: $this->url,
+            skills: $skills,
+        );
+    }
+
+    /**
+     * Return a new instance reassigned to another workspace.
+     */
+    public function withWorkspace(string $workspace): self
+    {
+        return new self(
+            name: $this->name,
+            workspace: $workspace,
+            alias: $this->alias,
+            url: $this->url,
+            skills: $this->skills,
+        );
     }
 
     /**

@@ -213,6 +213,44 @@ final class WorkspaceManifestDto implements ManifestDto
     }
 
     /**
+     * Return a copy of the DTO with a complete WorkspaceDefinition registered or updated.
+     */
+    public function withWorkspaceDefinition(WorkspaceDefinition $workspace, bool $asDefault = false): static
+    {
+        $workspaces = $this->workspaces;
+        $workspaces[$workspace->name] = $workspace;
+        ksort($workspaces);
+
+        $default = ($asDefault || $this->default === null) ? $workspace->name : $this->default;
+
+        return new self(
+            schema: $this->schema,
+            default: $default,
+            repositoryUrlTemplate: $this->repositoryUrlTemplate,
+            workspaces: $workspaces,
+            extra: $this->extra,
+        );
+    }
+
+    /**
+     * Save a PackageDefinition into the DTO (alias of withPackage using package's workspace).
+     *
+     * @throws PackageConflictException
+     */
+    public function savePackage(PackageDefinition $package): static
+    {
+        return $this->withPackage($package->workspace, $package);
+    }
+
+    /**
+     * Save a WorkspaceDefinition into the DTO (alias of withWorkspaceDefinition).
+     */
+    public function saveWorkspace(WorkspaceDefinition $workspace, bool $asDefault = false): static
+    {
+        return $this->withWorkspaceDefinition($workspace, $asDefault);
+    }
+
+    /**
      * Return a copy of the DTO with an updated default workspace name.
      */
     public function withDefault(?string $default): static

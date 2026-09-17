@@ -14,6 +14,7 @@ use AlexKassel\WorkspaceManifest\Exceptions\InvalidRepositoryUrlTemplateExceptio
 use AlexKassel\WorkspaceManifest\Exceptions\InvalidVendorSlugException;
 use AlexKassel\WorkspaceManifest\Exceptions\InvalidWorkspacePathException;
 use AlexKassel\WorkspaceManifest\Exceptions\PackageConflictException;
+use AlexKassel\WorkspaceManifest\Exceptions\PackageNotFoundException;
 use AlexKassel\WorkspaceManifest\Exceptions\WorkspaceAlreadyExistsException;
 use AlexKassel\WorkspaceManifest\Exceptions\WorkspaceNotFoundException;
 use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
@@ -217,6 +218,60 @@ class WorkspaceManifestTest extends TestCase
         $this->assertNotNull($pkgUpdated);
         $this->assertSame('ToolMaster', $pkgUpdated->alias);
         $this->assertSame(['laravel-best-practices', 'testing'], $pkgUpdated->skills);
+    }
+
+    public function test_register_alias_or_skills_on_non_existent_package_throws_exception(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+        $wm->registerWorkspace('packages');
+
+        $this->expectException(PackageNotFoundException::class);
+        $this->expectExceptionMessage('Package [acme/missing] was not found in workspace [packages].');
+        $wm->registerPackageAlias('packages', 'acme/missing', 'MissingAlias');
+    }
+
+    public function test_update_skills_on_non_existent_package_throws_exception(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+        $wm->registerWorkspace('packages');
+
+        $this->expectException(PackageNotFoundException::class);
+        $this->expectExceptionMessage('Package [acme/missing] was not found in workspace [packages].');
+        $wm->updatePackageSkills('packages', 'acme/missing', ['testing']);
+    }
+
+    public function test_save_package_and_save_workspace_symmetry(): void
+    {
+        $wm = WorkspaceManifest::open($this->manifestPath);
+        $wm->registerWorkspace('packages', vendor: 'acme');
+
+        // Create initial package
+        $pkg = new PackageDefinition(name: 'acme/billing', workspace: 'packages');
+        $wm->savePackage($pkg);
+
+        $this->assertTrue($wm->hasPackage('acme/billing'));
+
+        // Fluently update package with withers and re-save
+        $loadedPkg = $wm->getPackage('acme/billing');
+        $this->assertNotNull($loadedPkg);
+
+        $modifiedPkg = $loadedPkg
+            ->withAlias('BillingModule')
+            ->withSkills(['package-verification', 'laravel-best-practices']);
+
+        $wm->savePackage($modifiedPkg);
+
+        $freshPkg = $wm->getPackage('acme/billing');
+        $this->assertNotNull($freshPkg);
+        $this->assertSame('BillingModule', $freshPkg->alias);
+        $this->assertSame(['package-verification', 'laravel-best-practices'], $freshPkg->skills);
+
+        // Save new workspace directly
+        $newWs = new WorkspaceDefinition(name: 'plugins', vendor: 'third-party');
+        $wm->saveWorkspace($newWs);
+
+        $this->assertTrue($wm->hasWorkspace('plugins'));
+        $this->assertSame('third-party', $wm->getWorkspaceVendor('plugins'));
     }
 
     public function test_remove_package_with_empty_workspace_prune(): void

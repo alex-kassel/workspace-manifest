@@ -31,6 +31,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static ?string findPackageWorkspace(string $packageName)
  * @method static ?PackageDefinition getPackage(string $packageName, ?string $workspace = null)
  * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest addPackage(string $workspace, string $packageName, ?string $alias = null, ?string $url = null, array<string> $skills = [])
+ * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest savePackage(PackageDefinition $package)
+ * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest saveWorkspace(WorkspaceDefinition $workspace, bool $asDefault = false)
  * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest registerPackageAlias(string $workspace, string $packageName, string $alias)
  * @method static \AlexKassel\WorkspaceManifest\WorkspaceManifest updatePackageSkills(string $workspace, string $packageName, array<string> $skills)
  * @method static array<string, mixed> getWorkspaceHooks(string $workspace)

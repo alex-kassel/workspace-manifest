@@ -61,6 +61,10 @@
                                         },
                                         "skills": {
                                             "description": "Agent skills assigned to this package.",
+                                            "items": {
+                                                "minLength": 1,
+                                                "type": "string"
+                                            },
                                             "type": "array"
                                         }
                                     },

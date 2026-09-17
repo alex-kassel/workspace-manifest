@@ -111,6 +111,21 @@ final class WorkspaceDefinition implements Arrayable
     }
 
     /**
+     * Return a new instance with updated hooks.
+     *
+     * @param  array<string, mixed>|null  $hooks
+     */
+    public function withHooks(?array $hooks): self
+    {
+        return new self(
+            name: $this->name,
+            vendor: $this->vendor,
+            packages: $this->packages,
+            hooks: $hooks,
+        );
+    }
+
+    /**
      * Add or update a package definition in this workspace.
      * Enforces alias/name conflict rules and alphabetical sorting by effective directory.
      *

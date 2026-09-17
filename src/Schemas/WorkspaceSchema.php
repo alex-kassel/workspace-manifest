@@ -41,7 +41,9 @@ class WorkspaceSchema implements ManifestSchema
                 'name' => JsonSchema::string()->description('Package name in vendor/package format.')->required(),
                 'alias' => JsonSchema::string()->description('Directory alias for flat workspaces (e.g. "Billing").')->nullable(),
                 'url' => JsonSchema::string()->description('Custom Git repository remote URL.')->nullable(),
-                'skills' => JsonSchema::array()->description('Agent skills assigned to this package.'),
+                'skills' => JsonSchema::array()
+                    ->items(JsonSchema::string()->min(1))
+                    ->description('Agent skills assigned to this package.'),
             ])->description('Structured package descriptor with metadata.'),
         ]);
 

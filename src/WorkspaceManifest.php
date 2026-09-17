@@ -15,6 +15,7 @@ use AlexKassel\WorkspaceManifest\Exceptions\InvalidRepositoryUrlTemplateExceptio
 use AlexKassel\WorkspaceManifest\Exceptions\InvalidVendorSlugException;
 use AlexKassel\WorkspaceManifest\Exceptions\InvalidWorkspacePathException;
 use AlexKassel\WorkspaceManifest\Exceptions\PackageConflictException;
+use AlexKassel\WorkspaceManifest\Exceptions\PackageNotFoundException;
 use AlexKassel\WorkspaceManifest\Exceptions\WorkspaceAlreadyExistsException;
 use AlexKassel\WorkspaceManifest\Exceptions\WorkspaceNotFoundException;
 use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
@@ -557,6 +558,7 @@ class WorkspaceManifest
      * @throws InvalidPackageNameException
      * @throws InvalidPackageAliasException
      * @throws PackageConflictException
+     * @throws PackageNotFoundException
      */
     public function registerPackageAlias(string $workspace, string $packageName, string $alias): self
     {
@@ -567,10 +569,11 @@ class WorkspaceManifest
         }
 
         $pkg = $this->getPackage($packageName, $cleanWorkspace);
-        $url = $pkg?->url;
-        $skills = $pkg !== null ? $pkg->skills : [];
+        if ($pkg === null) {
+            throw new PackageNotFoundException($packageName, $cleanWorkspace);
+        }
 
-        return $this->addPackage($cleanWorkspace, $packageName, $alias, $url, $skills);
+        return $this->addPackage($cleanWorkspace, $packageName, $alias, $pkg->url, $pkg->skills);
     }
 
     /**
@@ -583,6 +586,7 @@ class WorkspaceManifest
      * @throws InvalidPackageNameException
      * @throws InvalidPackageAliasException
      * @throws PackageConflictException
+     * @throws PackageNotFoundException
      */
     public function updatePackageSkills(string $workspace, string $packageName, array $skills): self
     {
@@ -593,10 +597,61 @@ class WorkspaceManifest
         }
 
         $pkg = $this->getPackage($packageName, $cleanWorkspace);
-        $alias = $pkg?->alias;
-        $url = $pkg?->url;
+        if ($pkg === null) {
+            throw new PackageNotFoundException($packageName, $cleanWorkspace);
+        }
 
-        return $this->addPackage($cleanWorkspace, $packageName, $alias, $url, $skills);
+        $skillsResult = WorkspaceValidator::validateSkills($skills);
+        if ($skillsResult->isInvalid()) {
+            throw new InvalidArgumentException($skillsResult->errorMessage() ?? 'Invalid skills list.');
+        }
+
+        /** @var array<string> $validatedSkills */
+        $validatedSkills = $skillsResult->normalized() ?? [];
+
+        return $this->addPackage($cleanWorkspace, $packageName, $pkg->alias, $pkg->url, $validatedSkills);
+    }
+
+    /**
+     * Save a typed PackageDefinition into the manifest.
+     *
+     * @throws InvalidWorkspacePathException
+     * @throws WorkspaceNotFoundException
+     * @throws PackageConflictException
+     */
+    public function savePackage(PackageDefinition $package): self
+    {
+        $cleanWorkspace = self::normalizeWorkspacePath($package->workspace);
+
+        if (! $this->hasWorkspace($cleanWorkspace)) {
+            throw new WorkspaceNotFoundException($cleanWorkspace);
+        }
+
+        $this->mutateDto(static fn (WorkspaceManifestDto $dto): WorkspaceManifestDto => $dto->savePackage($package));
+
+        return $this;
+    }
+
+    /**
+     * Save a typed WorkspaceDefinition into the manifest.
+     *
+     * @throws InvalidWorkspacePathException
+     */
+    public function saveWorkspace(WorkspaceDefinition $workspace, bool $asDefault = false): self
+    {
+        $cleanWorkspace = self::normalizeWorkspacePath($workspace->name);
+
+        $this->mutateDto(static fn (WorkspaceManifestDto $dto): WorkspaceManifestDto => $dto->withWorkspaceDefinition(
+            new WorkspaceDefinition(
+                name: $cleanWorkspace,
+                vendor: $workspace->vendor,
+                packages: $workspace->packages,
+                hooks: $workspace->hooks,
+            ),
+            $asDefault
+        ));
+
+        return $this;
     }
 
     /**

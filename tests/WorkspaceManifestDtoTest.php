@@ -308,4 +308,61 @@ class WorkspaceManifestDtoTest extends TestCase
         // acme/billing is collapsed to 'billing', third-party/logger retains full name
         $this->assertSame(['billing', 'third-party/logger'], $manifestArray['packages']);
     }
+
+    public function test_package_definition_rejects_empty_or_non_string_skills(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Each skill in PackageDefinition must be a non-empty string.');
+
+        /** @phpstan-ignore-next-line */
+        new PackageDefinition(name: 'acme/billing', workspace: 'packages', skills: ['valid', '']);
+    }
+
+    public function test_package_definition_fluent_withers(): void
+    {
+        $pkg = new PackageDefinition(name: 'acme/billing', workspace: 'packages');
+        $this->assertNull($pkg->alias);
+        $this->assertNull($pkg->url);
+        $this->assertSame([], $pkg->skills);
+
+        $pkgWithAlias = $pkg->withAlias('BillingAlias');
+        $this->assertSame('BillingAlias', $pkgWithAlias->alias);
+        $this->assertSame('packages', $pkgWithAlias->workspace);
+
+        $pkgWithUrl = $pkgWithAlias->withUrl('git@github.com:acme/billing.git');
+        $this->assertSame('git@github.com:acme/billing.git', $pkgWithUrl->url);
+
+        $pkgWithSkills = $pkgWithUrl->withSkills(['testing', 'package-docs']);
+        $this->assertSame(['testing', 'package-docs'], $pkgWithSkills->skills);
+
+        $pkgReassigned = $pkgWithSkills->withWorkspace('modules');
+        $this->assertSame('modules', $pkgReassigned->workspace);
+        $this->assertSame('BillingAlias', $pkgReassigned->alias);
+    }
+
+    public function test_workspace_definition_with_hooks(): void
+    {
+        $ws = new WorkspaceDefinition(name: 'packages');
+        $this->assertNull($ws->hooks);
+
+        $wsWithHooks = $ws->withHooks(['post-install' => 'composer test']);
+        $this->assertSame(['post-install' => 'composer test'], $wsWithHooks->hooks);
+    }
+
+    public function test_dto_save_package_and_save_workspace(): void
+    {
+        $dto = (new WorkspaceManifestDto)->withWorkspace('packages', vendor: 'acme');
+
+        $pkg = new PackageDefinition(name: 'acme/auth', workspace: 'packages', alias: 'AuthModule');
+        $dto = $dto->savePackage($pkg);
+
+        $this->assertTrue($dto->hasPackage('acme/auth'));
+        $this->assertSame('AuthModule', $dto->findPackage('acme/auth')?->alias);
+
+        $newWs = new WorkspaceDefinition(name: 'modules', vendor: 'my-corp');
+        $dto = $dto->saveWorkspace($newWs);
+
+        $this->assertTrue($dto->hasWorkspace('modules'));
+        $this->assertSame('my-corp', $dto->getWorkspace('modules')?->vendor);
+    }
 }

@@ -128,7 +128,7 @@ $definitions = WorkspaceManifest::getWorkspaceDefinitions();
 - `registerWorkspace(string $workspace, ?string $vendor = null, bool $asDefault = false): self`
 - `unregisterWorkspace(string $workspace, bool $reassignDefault = true): self`
 - `getWorkspaceVendor(string $workspace): ?string`
-- `setWorkspaceVendor(string $workspace, ?string $vendor): self`
+- `saveWorkspace(WorkspaceDefinition $workspace, bool $asDefault = false): self`
 - `normalizeWorkspacePath(string $path): string`
 
 ### Package Operations
@@ -139,6 +139,7 @@ $definitions = WorkspaceManifest::getWorkspaceDefinitions();
 - `getPackageNames(?string $workspace = null): array<string>`
 - `getRawPackages(?string $workspace = null): array`
 - `addPackage(string $workspace, string $packageName, ?string $alias = null, ?string $url = null, array $skills = []): self`
+- `savePackage(PackageDefinition $package): self`
 - `registerPackageAlias(string $workspace, string $packageName, string $alias): self`
 - `updatePackageSkills(string $workspace, string $packageName, array $skills): self`
 - `removePackage(string $packageName, ?string $workspace = null, bool $pruneEmptyWorkspace = false): bool`

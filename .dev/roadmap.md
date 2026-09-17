@@ -15,15 +15,12 @@ This document outlines planned architectural enhancements and RFC proposals for 
 
 ---
 
-## 2. Command-Query Separation (CQS) Symmetry for Mutations
+## 2. Command-Query Separation (CQS) Symmetry for Mutations [Implemented]
 
-### Problem
-While read operations return rich typed DTOs (`PackageDefinition`, `WorkspaceDefinition`), write operations require decomposing objects into primitive scalars (`addPackage($workspace, $name, $alias, $url, $skills)`).
-
-### Planned Solution
-- Implement `savePackage(PackageDefinition $package): self` accepting a typed DTO directly.
-- Implement `saveWorkspace(WorkspaceDefinition $workspace): self` for complete workspace state updates.
-- Provide fluent immutable modifiers on `PackageDefinition` (`withAlias`, `withSkills`, `withUrl`).
+### Implementation
+- Added `savePackage(PackageDefinition $package): self` and `saveWorkspace(WorkspaceDefinition $workspace, bool $asDefault = false): self` on `WorkspaceManifest` and `WorkspaceManifestDto`.
+- Added fluent immutable withers on `PackageDefinition`: `withAlias()`, `withUrl()`, `withSkills()`, and `withWorkspace()`.
+- Added `withHooks()` on `WorkspaceDefinition`.
 
 ---
 

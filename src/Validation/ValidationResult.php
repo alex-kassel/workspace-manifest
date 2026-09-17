@@ -10,10 +10,10 @@ class ValidationResult
         public readonly bool $isValid,
         public readonly ?string $errorMessage = null,
         public readonly ?string $suggestion = null,
-        public readonly ?string $normalized = null,
+        public readonly mixed $normalized = null,
     ) {}
 
-    public static function valid(?string $normalized = null): self
+    public static function valid(mixed $normalized = null): self
     {
         return new self(
             isValid: true,
@@ -50,7 +50,7 @@ class ValidationResult
         return $this->suggestion;
     }
 
-    public function normalized(): ?string
+    public function normalized(): mixed
     {
         return $this->normalized;
     }

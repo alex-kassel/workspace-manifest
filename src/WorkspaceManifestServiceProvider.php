@@ -10,6 +10,7 @@ use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
 use AlexKassel\WorkspaceManifest\Services\WorkspaceRunnerInstaller;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\ServiceProvider;
+use League\Flysystem\WhitespacePathNormalizer;
 
 class WorkspaceManifestServiceProvider extends ServiceProvider
 {
@@ -31,16 +32,7 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(WorkspaceManifest::class, function () {
-            $configured = config(self::CONFIG_PATH_KEY);
-            $path = is_string($configured) && trim($configured) !== ''
-                ? trim($configured)
-                : WorkspaceManifest::DEFAULT_FILENAME;
-
-            $fullPath = str_starts_with($path, '/') || (DIRECTORY_SEPARATOR === '\\' && preg_match('/^[a-zA-Z]:\\\\/', $path))
-                ? $path
-                : (function_exists('base_path') ? base_path($path) : $path);
-
-            return WorkspaceManifest::open($fullPath);
+            return WorkspaceManifest::open(base_path($this->resolveRelativeFilename()));
         });
 
         $this->app->singleton(WorkspaceRunnerInstaller::class, function ($app) {
@@ -66,19 +58,9 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
             /** @var ManifestRegistry $registry */
             $registry = $this->app->make(ManifestRegistry::class);
 
-            $configured = config(self::CONFIG_PATH_KEY);
-            $path = is_string($configured) && trim($configured) !== ''
-                ? trim($configured)
-                : WorkspaceManifest::DEFAULT_FILENAME;
-
-            $basePath = function_exists('base_path') ? base_path() : '';
-            $relativeFilename = $basePath !== '' && str_starts_with($path, $basePath)
-                ? ltrim(substr($path, strlen($basePath)), DIRECTORY_SEPARATOR)
-                : $path;
-
             $registry->register(
                 name: self::REGISTRATION_NAME,
-                filename: $relativeFilename !== '' ? $relativeFilename : WorkspaceManifest::DEFAULT_FILENAME,
+                filename: $this->resolveRelativeFilename(),
                 schema: WorkspaceSchema::class,
                 description: self::REGISTRATION_DESCRIPTION,
                 metadata: [
@@ -86,5 +68,21 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
                 ],
             );
         }
+    }
+
+    protected function resolveRelativeFilename(): string
+    {
+        $configured = config(self::CONFIG_PATH_KEY);
+        $path = is_string($configured) && trim($configured) !== ''
+            ? trim($configured)
+            : WorkspaceManifest::DEFAULT_FILENAME;
+
+        $normalizer = new WhitespacePathNormalizer;
+        $cleanPath = $normalizer->normalizePath($path);
+        $cleanBase = $normalizer->normalizePath(base_path());
+
+        return str_starts_with($cleanPath, $cleanBase)
+            ? ltrim(substr($cleanPath, strlen($cleanBase)), '/')
+            : $cleanPath;
     }
 }

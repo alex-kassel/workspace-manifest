@@ -44,7 +44,7 @@ class WorkspaceInstallCommand extends Command
     public function handle(): int
     {
         $force = (bool) $this->option(self::OPTION_FORCE);
-        $rootPath = function_exists('base_path') ? base_path() : (string) getcwd();
+        $rootPath = base_path();
 
         $this->info('Installing workspace manifest and standalone runner...');
         $steps = $this->installer->install($rootPath, $force);

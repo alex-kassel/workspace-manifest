@@ -16,8 +16,6 @@ class WorkspaceRunnerInstaller
 
     public const DEFAULT_STUB_FILENAME = 'workspace.stub';
 
-    public const RUNNER_FILE_PERMISSIONS = 0755;
-
     public const TYPE_MANIFEST = 'manifest';
 
     public const TYPE_RUNNER = 'runner';
@@ -43,7 +41,10 @@ class WorkspaceRunnerInstaller
     public function install(string $rootPath, bool $force = false): array
     {
         $steps = [];
-        $manifestFilename = WorkspaceManifest::DEFAULT_FILENAME;
+        $configPath = config('workspace-manifest.path');
+        $manifestFilename = is_string($configPath) && trim($configPath) !== ''
+            ? trim($configPath)
+            : WorkspaceManifest::DEFAULT_FILENAME;
         $manifestPath = $rootPath.DIRECTORY_SEPARATOR.$manifestFilename;
 
         // 1. Initialize workspace manifest if missing
@@ -82,7 +83,7 @@ class WorkspaceRunnerInstaller
             );
 
             if ($created) {
-                @chmod($targetRunner, self::RUNNER_FILE_PERMISSIONS);
+                $this->files->chmod($targetRunner, 0755);
 
                 $steps[] = [
                     'type' => self::TYPE_RUNNER,

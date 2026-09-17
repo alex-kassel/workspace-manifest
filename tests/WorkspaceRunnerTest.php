@@ -7,6 +7,7 @@ namespace AlexKassel\WorkspaceManifest\Tests;
 use AlexKassel\ManifestEngine\ManifestEngineServiceProvider;
 use AlexKassel\ManifestEngine\ManifestRegistry;
 use AlexKassel\WorkspaceManifest\Services\WorkspaceRunnerInstaller;
+use AlexKassel\WorkspaceManifest\WorkspaceManifest;
 use AlexKassel\WorkspaceManifest\WorkspaceManifestServiceProvider;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Process;
@@ -21,7 +22,7 @@ class WorkspaceRunnerTest extends TestCase
     {
         parent::setUp();
         $this->files = new Filesystem;
-        $this->tempDir = sys_get_temp_dir().'/ws_installer_test_'.uniqid();
+        $this->tempDir = storage_path('framework/testing/ws_installer_'.bin2hex(random_bytes(6)));
         $this->files->ensureDirectoryExists($this->tempDir);
     }
 
@@ -70,7 +71,10 @@ class WorkspaceRunnerTest extends TestCase
 
     public function test_runner_help_command(): void
     {
-        $runner = dirname(__DIR__).'/bin/workspace';
+        /** @var WorkspaceRunnerInstaller $installer */
+        $installer = app(WorkspaceRunnerInstaller::class);
+        $installer->install($this->tempDir);
+        $runner = "{$this->tempDir}/workspace";
 
         $result = Process::run(['php', $runner, 'help']);
         $this->assertSame(0, $result->exitCode());
@@ -81,10 +85,61 @@ class WorkspaceRunnerTest extends TestCase
 
     public function test_runner_status_command(): void
     {
-        $runner = dirname(__DIR__).'/bin/workspace';
+        /** @var WorkspaceRunnerInstaller $installer */
+        $installer = app(WorkspaceRunnerInstaller::class);
+        $installer->install($this->tempDir);
+        $runner = "{$this->tempDir}/workspace";
 
-        $result = Process::path(base_path())->run(['php', $runner, 'status']);
+        $result = Process::path($this->tempDir)->run(['php', $runner, 'status']);
         $this->assertSame(0, $result->exitCode());
         $this->assertStringContainsString('Workspace Packages Status', $result->output());
+    }
+
+    public function test_workspace_manifest_singleton_resolves_from_container(): void
+    {
+        $instance = app(WorkspaceManifest::class);
+
+        $this->assertInstanceOf(WorkspaceManifest::class, $instance);
+        $this->assertSame(base_path('workspace.json'), $instance->manifest()->path);
+    }
+
+    public function test_service_provider_registers_custom_relative_path(): void
+    {
+        config(['workspace-manifest.path' => 'custom/config/workspace.json']);
+
+        $provider = new WorkspaceManifestServiceProvider(app());
+        $provider->register();
+        $provider->boot();
+
+        /** @var ManifestRegistry $registry */
+        $registry = app(ManifestRegistry::class);
+        $def = $registry->get('workspace');
+
+        $this->assertNotNull($def);
+        $this->assertSame('custom/config/workspace.json', $def->filename);
+
+        /** @var WorkspaceManifest $instance */
+        $instance = app(WorkspaceManifest::class);
+        $this->assertSame(base_path('custom/config/workspace.json'), $instance->manifest()->path);
+    }
+
+    public function test_service_provider_normalizes_absolute_path_within_base_path(): void
+    {
+        config(['workspace-manifest.path' => base_path('sub/nested/workspace.json')]);
+
+        $provider = new WorkspaceManifestServiceProvider(app());
+        $provider->register();
+        $provider->boot();
+
+        /** @var ManifestRegistry $registry */
+        $registry = app(ManifestRegistry::class);
+        $def = $registry->get('workspace');
+
+        $this->assertNotNull($def);
+        $this->assertSame('sub/nested/workspace.json', $def->filename);
+
+        /** @var WorkspaceManifest $instance */
+        $instance = app(WorkspaceManifest::class);
+        $this->assertSame(base_path('sub/nested/workspace.json'), $instance->manifest()->path);
     }
 }

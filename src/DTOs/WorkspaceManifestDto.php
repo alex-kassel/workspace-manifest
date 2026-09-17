@@ -6,6 +6,9 @@ namespace AlexKassel\WorkspaceManifest\DTOs;
 
 use AlexKassel\ManifestEngine\Contracts\ManifestDto;
 
+/**
+ * @implements ManifestDto<string, mixed>
+ */
 final class WorkspaceManifestDto implements ManifestDto
 {
     public const DEFAULT_REPOSITORY_URL_TEMPLATE = 'git@github.com:{package}.git';
@@ -180,14 +183,38 @@ final class WorkspaceManifestDto implements ManifestDto
     /**
      * Return a copy of the DTO with an added or updated workspace.
      */
-    public function withWorkspace(WorkspaceDefinition $workspace): static
-    {
+    public function withWorkspace(
+        WorkspaceDefinition|string $workspace,
+        ?string $vendor = null,
+        bool $asDefault = false
+    ): static {
+        $cleanVendor = $vendor !== null && trim($vendor) !== '' ? strtolower(trim($vendor)) : null;
         $workspaces = $this->workspaces;
-        $workspaces[$workspace->name] = $workspace;
+
+        if ($workspace instanceof WorkspaceDefinition) {
+            $name = $workspace->name;
+            $definition = $cleanVendor !== null ? $workspace->withVendor($cleanVendor) : $workspace;
+        } else {
+            $name = $workspace;
+            if (isset($workspaces[$name])) {
+                $definition = $cleanVendor !== null ? $workspaces[$name]->withVendor($cleanVendor) : $workspaces[$name];
+            } else {
+                $definition = new WorkspaceDefinition(
+                    name: $name,
+                    vendor: $cleanVendor,
+                    packages: [],
+                );
+            }
+        }
+
+        $workspaces[$name] = $definition;
+        ksort($workspaces);
+
+        $default = ($asDefault || $this->default === null) ? $name : $this->default;
 
         return new self(
             schema: $this->schema,
-            default: $this->default ?? $workspace->name,
+            default: $default,
             repositoryUrlTemplate: $this->repositoryUrlTemplate,
             workspaces: $workspaces,
             extra: $this->extra,
@@ -197,12 +224,12 @@ final class WorkspaceManifestDto implements ManifestDto
     /**
      * Return a copy of the DTO with a workspace removed.
      */
-    public function withoutWorkspace(string $workspaceName): static
+    public function withoutWorkspace(string $workspaceName, bool $reassignDefault = true): static
     {
         $workspaces = $this->workspaces;
         unset($workspaces[$workspaceName]);
 
-        $default = $this->default === $workspaceName
+        $default = ($reassignDefault && $this->default === $workspaceName)
             ? array_key_first($workspaces)
             : $this->default;
 
@@ -213,5 +240,97 @@ final class WorkspaceManifestDto implements ManifestDto
             workspaces: $workspaces,
             extra: $this->extra,
         );
+    }
+
+    /**
+     * Return a copy of the DTO with an updated workspace vendor prefix.
+     */
+    public function withWorkspaceVendor(string $name, ?string $vendor): static
+    {
+        $cleanVendor = $vendor !== null && trim($vendor) !== '' ? strtolower(trim($vendor)) : null;
+        $workspaces = $this->workspaces;
+
+        if (isset($workspaces[$name])) {
+            $workspaces[$name] = $workspaces[$name]->withVendor($cleanVendor);
+        } else {
+            $workspaces[$name] = new WorkspaceDefinition(
+                name: $name,
+                vendor: $cleanVendor,
+                packages: [],
+            );
+        }
+
+        return new self(
+            schema: $this->schema,
+            default: $this->default,
+            repositoryUrlTemplate: $this->repositoryUrlTemplate,
+            workspaces: $workspaces,
+            extra: $this->extra,
+        );
+    }
+
+    /**
+     * Return a copy of the DTO with an added or updated package in the given workspace.
+     */
+    public function withPackage(string $workspace, PackageDefinition $package): static
+    {
+        $dto = isset($this->workspaces[$workspace])
+            ? $this
+            : $this->withWorkspace($workspace);
+
+        $workspaces = $dto->workspaces;
+        $workspaces[$workspace] = $workspaces[$workspace]->withPackage($package);
+
+        return new self(
+            schema: $dto->schema,
+            default: $dto->default ?? $workspace,
+            repositoryUrlTemplate: $dto->repositoryUrlTemplate,
+            workspaces: $workspaces,
+            extra: $dto->extra,
+        );
+    }
+
+    /**
+     * Remove a package by name from a workspace (or auto-discover workspace if null).
+     *
+     * @return array{0: static, 1: bool} Tuple of [newManifestDto, wasRemoved]
+     */
+    public function withoutPackage(
+        string $packageName,
+        ?string $workspace = null,
+        bool $pruneEmptyWorkspace = false
+    ): array {
+        $targetWorkspace = $workspace ?? $this->findPackageWorkspace($packageName);
+
+        if ($targetWorkspace === null || ! isset($this->workspaces[$targetWorkspace])) {
+            return [$this, false];
+        }
+
+        [$updatedWs, $removed] = $this->workspaces[$targetWorkspace]->withoutPackage($packageName);
+
+        if (! $removed) {
+            return [$this, false];
+        }
+
+        $workspaces = $this->workspaces;
+        $workspaces[$targetWorkspace] = $updatedWs;
+        $default = $this->default;
+
+        if ($pruneEmptyWorkspace && empty($updatedWs->packages)) {
+            unset($workspaces[$targetWorkspace]);
+            if ($default === $targetWorkspace) {
+                $default = array_key_first($workspaces);
+            }
+        }
+
+        $newDto = new self(
+            schema: $this->schema,
+            default: $default,
+            repositoryUrlTemplate: $this->repositoryUrlTemplate,
+            workspaces: $workspaces,
+            extra: $this->extra,
+        );
+
+        return [$newDto, true];
     }
 }

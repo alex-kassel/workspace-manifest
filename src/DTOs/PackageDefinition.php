@@ -33,14 +33,14 @@ final class PackageDefinition
     {
         if (is_string($entry)) {
             return new self(
-                name: $entry,
+                name: strtolower(trim($entry)),
                 workspace: $workspace,
             );
         }
 
-        $name = isset($entry['name']) && is_string($entry['name']) ? $entry['name'] : self::DEFAULT_EMPTY_STRING;
-        $alias = isset($entry['alias']) && is_string($entry['alias']) ? $entry['alias'] : null;
-        $url = isset($entry['url']) && is_string($entry['url']) ? $entry['url'] : null;
+        $name = isset($entry['name']) && is_string($entry['name']) ? strtolower(trim($entry['name'])) : self::DEFAULT_EMPTY_STRING;
+        $alias = isset($entry['alias']) && is_string($entry['alias']) ? trim($entry['alias']) : null;
+        $url = isset($entry['url']) && is_string($entry['url']) ? trim($entry['url']) : null;
         $skills = isset($entry['skills']) && is_array($entry['skills'])
             ? array_values(array_filter($entry['skills'], 'is_string'))
             : self::DEFAULT_EMPTY_SKILLS;

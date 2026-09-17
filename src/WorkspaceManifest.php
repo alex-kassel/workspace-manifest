@@ -62,7 +62,11 @@ class WorkspaceManifest
     {
         $trimmed = trim(str_replace('\\', '/', $path));
 
-        if ($trimmed === '' || str_starts_with($trimmed, '/') || preg_match('/^[a-zA-Z]:\//', $trimmed)) {
+        if ($trimmed === '' || $trimmed === '.' || $trimmed === './') {
+            throw new InvalidWorkspacePathException($path, 'Workspace path cannot be empty or root directory.');
+        }
+
+        if (str_starts_with($trimmed, '/') || preg_match('/^[a-zA-Z]:[\\\\\/]/', $path)) {
             throw new InvalidWorkspacePathException($path, 'Absolute paths are not allowed. Workspace must be a relative path.');
         }
 
@@ -79,6 +83,24 @@ class WorkspaceManifest
                 array_pop($parts);
 
                 continue;
+            }
+            if (str_contains($segment, '..')) {
+                throw new InvalidWorkspacePathException($path, 'Path traversal ("..") is not allowed.');
+            }
+            if (strlen($segment) > 255) {
+                throw new InvalidWorkspacePathException($path, 'Path segment exceeds maximum filesystem length of 255 characters.');
+            }
+            if (str_starts_with($segment, '.')) {
+                throw new InvalidWorkspacePathException(
+                    $path,
+                    "Invalid path segment [{$segment}]. Workspace folder names cannot start with a dot."
+                );
+            }
+            if (! preg_match('/^[a-zA-Z0-9@~+_]([a-zA-Z0-9@~+_.\-]*[a-zA-Z0-9@~+_])?$/', $segment)) {
+                throw new InvalidWorkspacePathException(
+                    $path,
+                    "Invalid path segment [{$segment}]. Workspace folder names must start and end with an alphanumeric character or safe prefix and contain only letters, numbers, dashes, underscores, and single dots."
+                );
             }
             $parts[] = $segment;
         }

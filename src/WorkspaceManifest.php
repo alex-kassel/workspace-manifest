@@ -250,7 +250,7 @@ class WorkspaceManifest
             return false;
         }
 
-        return $this->manifest->has("workspaces.{$clean}");
+        return $this->toDto()->hasWorkspace($clean);
     }
 
     /**
@@ -292,7 +292,7 @@ class WorkspaceManifest
     {
         $clean = self::normalizeWorkspacePath($workspace);
 
-        return $this->manifest->get("workspaces.{$clean}.vendor");
+        return $this->toDto()->getWorkspace($clean)?->vendor;
     }
 
     /**
@@ -318,15 +318,17 @@ class WorkspaceManifest
      */
     public function getRawPackages(?string $workspace = null): array
     {
+        $workspaces = $this->getWorkspaces();
+
         if ($workspace !== null) {
             $clean = self::normalizeWorkspacePath($workspace);
 
-            return (array) $this->manifest->get("workspaces.{$clean}.packages", []);
+            return $workspaces[$clean]['packages'] ?? [];
         }
 
         $all = [];
-        foreach ($this->getWorkspaces() as $wsKey => $wsConfig) {
-            $all[$wsKey] = (array) $wsConfig['packages'];
+        foreach ($workspaces as $wsKey => $wsConfig) {
+            $all[$wsKey] = $wsConfig['packages'];
         }
 
         return $all;
@@ -447,21 +449,24 @@ class WorkspaceManifest
         bool $pruneEmptyWorkspace = false
     ): bool {
         $cleanPackageName = strtolower(trim($packageName));
-
-        $targetWorkspace = $workspace !== null
-            ? self::normalizeWorkspacePath($workspace)
-            : $this->findPackageWorkspace($cleanPackageName);
-
-        if ($targetWorkspace === null) {
-            return false;
-        }
+        $explicitWorkspace = $workspace !== null ? self::normalizeWorkspacePath($workspace) : null;
 
         $removed = false;
 
-        $this->mutate(function (array $data) use ($targetWorkspace, $cleanPackageName, $pruneEmptyWorkspace, &$removed): array {
+        $this->mutate(function (array $data) use ($explicitWorkspace, $cleanPackageName, $pruneEmptyWorkspace, &$removed): array {
             $dto = WorkspaceManifestDto::fromArray($data);
+
+            $targetWorkspace = $explicitWorkspace ?? $dto->findPackageWorkspace($cleanPackageName);
+            if ($targetWorkspace === null) {
+                return $data;
+            }
+
             [$newDto, $wasRemoved] = $dto->withoutPackage($cleanPackageName, $targetWorkspace, $pruneEmptyWorkspace);
             $removed = $wasRemoved;
+
+            if (! $wasRemoved) {
+                return $data;
+            }
 
             return $newDto->toArray();
         });

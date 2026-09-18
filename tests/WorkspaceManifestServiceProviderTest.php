@@ -41,7 +41,7 @@ class WorkspaceManifestServiceProviderTest extends TestCase
         $this->assertTrue($registry->has(WorkspaceManifestServiceProvider::REGISTRATION_NAME));
         $definition = $registry->get(WorkspaceManifestServiceProvider::REGISTRATION_NAME);
         $this->assertNotNull($definition);
-        $this->assertSame(WorkspaceManifest::DEFAULT_FILENAME, $definition->filename);
-        $this->assertSame(WorkspaceSchema::class, $definition->schema);
+        $this->assertSame(base_path(WorkspaceManifest::DEFAULT_FILENAME), $definition->path);
+        $this->assertInstanceOf(WorkspaceSchema::class, $definition->schema);
     }
 }

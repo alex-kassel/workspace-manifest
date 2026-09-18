@@ -44,14 +44,14 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
             $registry = $this->app->make(ManifestRegistry::class);
 
             $configuredPath = config(self::CONFIG_PATH_KEY);
-            $filename = is_string($configuredPath) && trim($configuredPath) !== ''
+            $targetPath = is_string($configuredPath) && trim($configuredPath) !== ''
                 ? trim($configuredPath)
                 : WorkspaceManifest::DEFAULT_FILENAME;
 
             $registry->register(new ManifestDefinition(
                 name: self::REGISTRATION_NAME,
-                filename: $filename,
-                schema: WorkspaceSchema::class,
+                path: base_path($targetPath),
+                schema: new WorkspaceSchema,
                 description: self::REGISTRATION_DESCRIPTION,
             ));
         }

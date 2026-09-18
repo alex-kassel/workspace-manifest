@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AlexKassel\WorkspaceManifest;
 
+use AlexKassel\ManifestEngine\DTOs\ManifestDefinition;
 use AlexKassel\ManifestEngine\ManifestRegistry;
 use AlexKassel\WorkspaceManifest\Schemas\WorkspaceSchema;
 use Illuminate\Support\ServiceProvider;
@@ -47,12 +48,12 @@ class WorkspaceManifestServiceProvider extends ServiceProvider
                 ? trim($configuredPath)
                 : WorkspaceManifest::DEFAULT_FILENAME;
 
-            $registry->register(
+            $registry->register(new ManifestDefinition(
                 name: self::REGISTRATION_NAME,
                 filename: $filename,
                 schema: WorkspaceSchema::class,
                 description: self::REGISTRATION_DESCRIPTION,
-            );
+            ));
         }
     }
 }

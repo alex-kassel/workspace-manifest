@@ -39,7 +39,7 @@ class WorkspaceManifest
         Manifest|string $manifest = self::DEFAULT_FILENAME,
     ) {
         if (is_string($manifest)) {
-            $this->manifest = Manifest::open($manifest, new WorkspaceSchema);
+            $this->manifest = new Manifest($manifest, new WorkspaceSchema);
         } else {
             $this->manifest = $manifest;
         }

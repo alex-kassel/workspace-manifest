@@ -52,6 +52,10 @@ class WorkspaceManifest
     {
         $target = $path ?? config('workspace-manifest.path') ?? self::DEFAULT_FILENAME;
 
+        if (function_exists('base_path') && ! str_starts_with($target, '/') && ! preg_match('/^[a-zA-Z]:[\\\\\/]/', $target)) {
+            $target = base_path($target);
+        }
+
         return new self($target);
     }
 
